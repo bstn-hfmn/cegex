@@ -1,0 +1,37 @@
+BasedOnStyle: LLVM
+Language: C
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 0
+
+PointerAlignment: Left
+DerivePointerAlignment: false
+SpaceBeforeParens: Never
+SpaceAfterCStyleCast: true
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+
+AlignAfterOpenBracket: Align
+BinPackParameters: AlwaysOnePerLine
+
+AlignConsecutiveMacros: AcrossEmptyLines
+AlignEscapedNewlines: Right
+Cpp11BracedListStyle: false
