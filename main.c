@@ -123,8 +123,7 @@ nfa_state* nfa_add_state(
     nfa_state_id* out_id)
 {
     assert(nfa != NULL);
-    if(nfa->num_states >= NFA_MAX_STATES)
-    {
+    if(nfa->num_states >= NFA_MAX_STATES) {
         return NULL;
     }
 
@@ -168,6 +167,26 @@ nfa nfa_create_symbol(
     return nfa;
 }
 
+void nfa_boundary_states(nfa* nfa,
+                         nfa_state** initial,
+                         nfa_state** final,
+                         size_t offset,
+                         size_t n)
+{
+    for(size_t i = 0; i < n; i++) {
+        nfa_state* state = &nfa->states[offset + i];
+        if(state->is_initial && initial != NULL) {
+            *initial = state;
+            if(final == NULL)
+                break;
+        } else if(state->is_final && final != NULL) {
+            *final = state;
+            if(initial == NULL)
+                break;
+        }
+    }
+}
+
 typedef struct nfa_state_copy_entry
 {
     nfa_state_id src_id;
@@ -189,11 +208,10 @@ size_t nfa_copy_states(
     nfa_state_copy_entry entries[NFA_MAX_STATES];
 
     size_t copied = 0;
-    for(size_t i = 0; i < n; i++)
-    { // Add all required states in bulk, building copy entries to patch transitions
+    for(size_t i = 0; i < n; i++) {
+        // Add all required states in bulk, building copy entries to patch transitions
         size_t index = offset + i;
-        if(index >= src->num_states)
-        {
+        if(index >= src->num_states) {
             break;
         }
 
@@ -205,23 +223,21 @@ size_t nfa_copy_states(
         ++copied;
     }
 
-    for(size_t i = 0; i < copied; i++)
-    { // Patch the transitions using the built copy entries
+    for(size_t i = 0; i < copied; i++) {
+        // Patch the transitions using the built copy entries
         nfa_state* dst_state = &dst->states[(dst->num_states - copied) + i];
-        if(dst_state->num_transitions <= 0)
-        {
+        if(dst_state->num_transitions <= 0) {
             continue;
         }
 
-        for(size_t j = 0; j < dst_state->num_transitions; j++)
-        { // For each of the transition in the unpatched state
+        for(size_t j = 0; j < dst_state->num_transitions; j++) {
+            // For each of the transition in the unpatched state
             nfa_transition* transition = &dst_state->transitions[j];
             nfa_state_id from = dst_state->id;
             nfa_state_id to = transition->to;
-            for(size_t k = 0; k < copied; k++)
-            { // Find the original entry and return the mapped identifier
-                if(entries[k].src_id == transition->to)
-                {
+            for(size_t k = 0; k < copied; k++) {
+                // Find the original entry and return the mapped identifier
+                if(entries[k].src_id == transition->to) {
                     to = entries[k].dst_id;
                     break;
                 }
@@ -252,45 +268,29 @@ nfa nfa_create_union(
     size_t offset = 1;
     size_t copied = nfa_copy_states(&nfa, a, 0, a->num_states);
 
-    nfa_state_id qa0, qaF;
-    for(size_t i = 0; i < copied; i++)
-    {
-        nfa_state* state = &nfa.states[offset + i];
-        if(state->is_initial)
-        {
-            qa0 = state->id;
-            state->is_initial = false;
-        } else if(state->is_final)
-        {
-            qaF = state->id;
-            state->is_final = false;
-        }
-    }
+    nfa_state *qa0 = NULL, *qaF = NULL;
+    nfa_boundary_states(&nfa, &qa0, &qaF, offset, copied);
+
+    assert(qa0 != NULL && qaF != NULL);
+    qa0->is_initial = false;
+    qaF->is_final = false;
 
     offset += copied;
     copied = nfa_copy_states(&nfa, b, 0, b->num_states);
 
-    size_t qb0, qbF;
-    for(size_t i = 0; i < copied; i++)
-    {
-        nfa_state* state = &nfa.states[offset + i];
-        if(state->is_initial)
-        {
-            qb0 = state->id;
-            state->is_initial = false;
-        } else if(state->is_final)
-        {
-            qbF = state->id;
-            state->is_final = false;
-        }
-    }
+    nfa_state *qb0 = NULL, *qbF = NULL;
+    nfa_boundary_states(&nfa, &qb0, &qbF, offset, copied);
 
-    nfa_create_transition(&nfa, q0, qa0, NFA_TRANSITION_EPSILON);
-    nfa_create_transition(&nfa, q0, qb0, NFA_TRANSITION_EPSILON);
+    assert(qb0 != NULL && qbF != NULL);
+    qb0->is_initial = false;
+    qbF->is_final = false;
+
+    nfa_create_transition(&nfa, q0, qa0->id, NFA_TRANSITION_EPSILON);
+    nfa_create_transition(&nfa, q0, qb0->id, NFA_TRANSITION_EPSILON);
 
     nfa_add_state(&nfa, NFA_STATE_FINAL, &qF);
-    nfa_create_transition(&nfa, qaF, qF, NFA_TRANSITION_EPSILON);
-    nfa_create_transition(&nfa, qbF, qF, NFA_TRANSITION_EPSILON);
+    nfa_create_transition(&nfa, qaF->id, qF, NFA_TRANSITION_EPSILON);
+    nfa_create_transition(&nfa, qbF->id, qF, NFA_TRANSITION_EPSILON);
 
     return nfa;
 }
@@ -308,34 +308,22 @@ nfa nfa_create_concat(
     size_t offset = 0;
     size_t copied = nfa_copy_states(&nfa, a, 0, a->num_states);
 
-    size_t qaF = 0;
-    for(size_t i = 0; i < copied; i++)
-    {
-        nfa_state* state = &nfa.states[offset + i];
-        if(state->is_final)
-        {
-            qaF = state->id;
-            state->is_final = false;
-            break;
-        }
-    }
+    nfa_state* qaF = NULL;
+    nfa_boundary_states(&nfa, NULL, &qaF, offset, copied);
+
+    assert(qaF != NULL);
+    qaF->is_final = false;
 
     offset += copied;
     copied = nfa_copy_states(&nfa, b, 0, b->num_states);
 
-    size_t qb0 = 0;
-    for(size_t i = 0; i < copied; i++)
-    {
-        nfa_state* state = &nfa.states[offset + i];
-        if(state->is_initial)
-        {
-            qb0 = state->id;
-            state->is_initial = false;
-            break;
-        }
-    }
+    nfa_state* qb0 = NULL;
+    nfa_boundary_states(&nfa, &qb0, NULL, offset, copied);
 
-    nfa_create_transition(&nfa, qaF, qb0, NFA_TRANSITION_EPSILON);
+    assert(qb0 != NULL);
+    qb0->is_initial = false;
+
+    nfa_create_transition(&nfa, qaF->id, qb0->id, NFA_TRANSITION_EPSILON);
     return nfa;
 }
 
@@ -353,26 +341,18 @@ nfa nfa_create_star(
     size_t offset = 1;
     size_t copied = nfa_copy_states(&nfa, in, 0, in->num_states);
 
-    size_t qin0, qinF;
-    for(size_t i = 0; i < copied; i++)
-    {
-        nfa_state* state = &nfa.states[offset + i];
-        if(state->is_initial)
-        {
-            qin0 = state->id;
-            state->is_initial = false;
-        } else if(state->is_final)
-        {
-            qinF = state->id;
-            state->is_final = false;
-        }
-    }
+    nfa_state *qin0 = NULL, *qinF = NULL;
+    nfa_boundary_states(&nfa, &qin0, &qinF, offset, copied);
 
-    nfa_create_transition(&nfa, q0, qin0, NFA_TRANSITION_EPSILON);
-    nfa_create_transition(&nfa, qinF, qin0, NFA_TRANSITION_EPSILON);
+    assert(qin0 != NULL && qinF != NULL);
+    qin0->is_initial = false;
+    qinF->is_final = false;
+
+    nfa_create_transition(&nfa, q0, qin0->id, NFA_TRANSITION_EPSILON);
+    nfa_create_transition(&nfa, qinF->id, qin0->id, NFA_TRANSITION_EPSILON);
     assert(nfa_add_state(&nfa, NFA_STATE_FINAL, &qF) != NULL);
 
-    nfa_create_transition(&nfa, qinF, qF, NFA_TRANSITION_EPSILON);
+    nfa_create_transition(&nfa, qinF->id, qF, NFA_TRANSITION_EPSILON);
     nfa_create_transition(&nfa, q0, qF, NFA_TRANSITION_EPSILON);
 
     return nfa;
@@ -383,32 +363,25 @@ void nfa_digraph_str(nfa* nfa)
     assert(nfa != NULL);
 
     printf("digraph G {\n\trankdir=\"LR\";\n\tnode[shape=circle];\n\n");
-    for(size_t i = 0; i < nfa->num_states; i++)
-    {
+    for(size_t i = 0; i < nfa->num_states; i++) {
         nfa_state* state = &nfa->states[i];
         if(state->num_transitions <= 0)
             continue;
 
-        for(size_t j = 0; j < state->num_transitions; j++)
-        {
+        for(size_t j = 0; j < state->num_transitions; j++) {
             nfa_transition* transition = &state->transitions[j];
-            if(transition->condition.type == NFA_TRANSITION_COND_EPSILON)
-            {
+            if(transition->condition.type == NFA_TRANSITION_COND_EPSILON) {
                 printf("\tq%zu -> q%zu [label=\"&#949;\"];\n", transition->from, transition->to);
-            } else if(transition->condition.type == NFA_TRANSITION_COND_SYMBOL)
-            {
+            } else if(transition->condition.type == NFA_TRANSITION_COND_SYMBOL) {
                 printf("\tq%zu -> q%zu [label=\"%c\"];\n", transition->from, transition->to, transition->condition.as.symbol);
             }
         }
     }
 
     printf("\n");
-    if(nfa->num_states > 0)
-    {
-        for(size_t i = 0; i < nfa->num_states; i++)
-        {
-            if(nfa->states[i].is_initial)
-            {
+    if(nfa->num_states > 0) {
+        for(size_t i = 0; i < nfa->num_states; i++) {
+            if(nfa->states[i].is_initial) {
                 printf("\tstart -> q%zu;\n", nfa->states[i].id);
                 break;
             }
@@ -417,10 +390,8 @@ void nfa_digraph_str(nfa* nfa)
         printf("\tstart[shape=none, label=\"\"];\n");
     }
 
-    for(size_t i = 0; i < nfa->num_states; i++)
-    {
-        if(nfa->states[i].is_final)
-        {
+    for(size_t i = 0; i < nfa->num_states; i++) {
+        if(nfa->states[i].is_final) {
             printf("\tq%zu[shape=doublecircle];\n", nfa->states[i].id);
         }
     }
@@ -440,5 +411,6 @@ int main(void)
     nfa aasc = nfa_create_concat(&aas, &c); // ((ab)|a)*c
 
     nfa_digraph_str(&aasc);
+
     return 0;
 }

@@ -15,7 +15,7 @@ SpaceAfterCStyleCast: true
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterClass: true
-  AfterControlStatement: Always
+  AfterControlStatement: MultiLine
   AfterEnum: true
   AfterFunction: true
   AfterStruct: true
