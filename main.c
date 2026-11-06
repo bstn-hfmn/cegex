@@ -10,7 +10,11 @@
 #define NFA_STATE_MAX_TRANSITIONS      2
 #define NFA_TRANSITION_SET_MAX_SYMBOLS 64
 
-#define NFA_TRANSITION_EPSILON         ((nfa_transition_cond){ .type = NFA_TRANSITION_COND_EPSILON })
+#define NFA_CREATE_SYMBOL(n, c, o)     nfa_create_symbol(n, ((byte[1]){ c }), 1, o)
+#define NFA_CREATE_SYMBOL_N(ctx, data, out) \
+    nfa_create_symbol((ctx), (data), sizeof(data) / sizeof((data)[0]), (out))
+
+#define NFA_TRANSITION_EPSILON ((nfa_transition_cond){ .type = NFA_TRANSITION_COND_EPSILON })
 
 #define NFA_STATE_DEFAULT     \
     ((nfa_state){             \
@@ -90,12 +94,13 @@ typedef struct nfa_fragment
     nfa_state_id final;
 } nfa_fragment;
 
-typedef ARRAY(nfa_state) nfa_states;
-typedef ARRAY(nfa_fragment) nfa_fragments;
+typedef ARRAY(nfa_state) nfa_state_array;
+typedef ARRAY(nfa_fragment) nfa_fragment_array;
+typedef ARRAY(nfa_state_id) nfa_state_id_array;
 
 typedef struct nfa
 {
-    nfa_states states;
+    nfa_state_array states;
 } nfa;
 
 /// @brief Initializes the NFA
@@ -350,28 +355,6 @@ fail:
     return status;
 }
 
-typedef struct nfa_state_id_array
-{
-    size_t capacity;
-    size_t length;
-
-    nfa_state_id* elements;
-} nfa_state_id_array;
-
-bool nfa_id_array_contains(nfa_state_id_array* array,
-                           nfa_state_id id)
-{
-    for(size_t i = 0; i < array->length; i++) {
-        nfa_state_id right = 0;
-        ARRAY_NTH(array, i, &right);
-
-        if(id == right)
-            return true;
-    }
-
-    return false;
-}
-
 void nfa_digraph_str(nfa* ctx,
                      nfa_fragment fragment,
                      char* buffer,
@@ -430,7 +413,7 @@ void nfa_digraph_str(nfa* ctx,
                     goto finally;
             }
 
-            if(!nfa_id_array_contains(&visited, transition->to)) {
+            if(!ARRAY_CONTAINS(&visited, transition->to)) {
                 ARRAY_PUSH(&stack, transition->to);
                 ARRAY_PUSH(&visited, transition->to);
             }
@@ -459,10 +442,6 @@ void nfa_matches(nfa* ctx,
                  const char* subject)
 {
 }
-
-#define NFA_CREATE_SYMBOL(n, c, o) nfa_create_symbol(n, ((byte[1]){ c }), 1, o)
-#define NFA_CREATE_SYMBOL_N(ctx, data, out) \
-    nfa_create_symbol((ctx), (data), sizeof(data) / sizeof((data)[0]), (out))
 
 int main(void)
 {

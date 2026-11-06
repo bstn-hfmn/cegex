@@ -13,96 +13,63 @@
         t* elements;     \
     }
 
-#define ARRAY_INIT(arr)                                                       \
-    do {                                                                      \
-        assert((arr) != NULL);                                                \
-        (arr)->length = 0;                                                    \
-        next_prime_capacity(0, &(arr)->capacity);                             \
-        (arr)->elements = malloc((arr)->capacity * sizeof(*(arr)->elements)); \
-    } while(0)
+#define ARRAY_INIT(arr)                array_init((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity, sizeof(*(arr)->elements))
+#define ARRAY_FREE(arr)                array_free((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity)
 
-#define ARRAY_FREE(arr)               \
-    do {                              \
-        assert((arr) != NULL);        \
-                                      \
-        if((arr)->elements != NULL) { \
-            free((arr)->elements);    \
-            (arr)->elements = NULL;   \
-            (arr)->length = 0;        \
-            (arr)->capacity = 0;      \
-        }                             \
-    } while(0)
+#define ARRAY_EMPTY(arr)               array_empty((arr)->length)
 
-#define ARRAY_COPY(dst, src)                        \
-    do {                                            \
-        assert((dst) != NULL);                      \
-        assert((src) != NULL);                      \
-        assert(sizeof(*(dst)) == sizeof(*(src)));   \
-                                                    \
-        for(size_t i = 0; i < (src)->length; i++) { \
-            ARRAY_PUSH(dst, (src)->elements[i]);    \
-        }                                           \
-    } while(0)
+#define ARRAY_NTH(arr, index, out)     array_nth((void**) &(arr)->elements, (arr)->length, (index), sizeof(*(arr)->elements), (void*) (out))
+#define ARRAY_NTH_REF(arr, index, out) array_nth_ref((void**) &(arr)->elements, (arr)->length, (index), sizeof(*(arr)->elements), (void**) (out))
 
-#define ARRAY_EMPTY(arr) ((arr)->length == 0)
+#define ARRAY_POP(arr, out)            array_pop((void**) &(arr)->elements, &(arr)->length, sizeof(*(arr)->elements), (void*) (out))
+#define ARRAY_PUSH(arr, el)            array_push((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity, sizeof(*(arr)->elements), &el)
 
-#define ARRAY_NTH_REF(arr, index, out)  \
-    do {                                \
-        assert((arr) != NULL);          \
-        assert(index >= 0);             \
-                                        \
-        if(index >= (arr)->length)      \
-            break;                      \
-                                        \
-        *out = &(arr)->elements[index]; \
-    } while(0)
-
-#define ARRAY_NTH(arr, index, out)     \
-    do {                               \
-        assert((arr) != NULL);         \
-        assert(index >= 0);            \
-                                       \
-        if(index >= (arr)->length)     \
-            break;                     \
-                                       \
-        *out = (arr)->elements[index]; \
-    } while(0)
-
-#define ARRAY_PUSH(arr, element)                                                            \
-    do {                                                                                    \
-        assert((arr) != NULL);                                                              \
-                                                                                            \
-        if((arr)->length >= (arr)->capacity) {                                              \
-            size_t next_capacity;                                                           \
-            if(!next_prime_capacity((arr)->capacity + 1, &next_capacity))                   \
-                break;                                                                      \
-                                                                                            \
-            void* tmp = realloc((arr)->elements, next_capacity * sizeof(*(arr)->elements)); \
-            if(tmp == NULL)                                                                 \
-                break;                                                                      \
-                                                                                            \
-            (arr)->elements = tmp;                                                          \
-            (arr)->capacity = next_capacity;                                                \
-        }                                                                                   \
-                                                                                            \
-        (arr)->elements[(arr)->length++] = element;                                         \
-    } while(0)
-
-#define ARRAY_POP(arr, out)                               \
-    do {                                                  \
-        assert((arr) != NULL);                            \
-        if(ARRAY_EMPTY(arr))                              \
-            break;                                        \
-                                                          \
-        if((out) != NULL)                                 \
-            memcpy((out),                                 \
-                   (arr)->elements + ((arr)->length - 1), \
-                   sizeof(*(arr)->elements));             \
-                                                          \
-        (arr)->length--;                                  \
-    } while(0)
+#define ARRAY_CONTAINS(arr, needle)    array_contains((void**) &(arr)->elements, (arr)->length, sizeof(*(arr)->elements), &needle)
 
 bool next_prime_capacity(size_t n,
                          size_t* out);
+
+void array_init(void** elements,
+                size_t* length,
+                size_t* capacity,
+                size_t stride);
+
+void array_free(void** elements,
+                size_t* length,
+                size_t* capacity);
+
+bool array_empty(size_t length);
+
+void array_nth(void** elements,
+               size_t length,
+               size_t index,
+               size_t stride,
+               void* out);
+
+void array_nth_ref(void** elements,
+                   size_t length,
+                   size_t index,
+                   size_t stride,
+                   void** out);
+
+void array_grow(void** elements,
+                size_t* capacity,
+                size_t stride);
+
+void array_pop(void** elements,
+               size_t* length,
+               size_t stride,
+               void* out);
+
+void array_push(void** elements,
+                size_t* length,
+                size_t* capacity,
+                size_t stride,
+                const void* element);
+
+bool array_contains(void** elements,
+                    size_t length,
+                    size_t stride,
+                    void* needle);
 
 #endif
