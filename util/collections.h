@@ -33,6 +33,17 @@
         }                             \
     } while(0)
 
+#define ARRAY_COPY(dst, src)                        \
+    do {                                            \
+        assert((dst) != NULL);                      \
+        assert((src) != NULL);                      \
+        assert(sizeof(*(dst)) == sizeof(*(src)));   \
+                                                    \
+        for(size_t i = 0; i < (src)->length; i++) { \
+            ARRAY_PUSH(dst, (src)->elements[i]);    \
+        }                                           \
+    } while(0)
+
 #define ARRAY_EMPTY(arr) ((arr)->length == 0)
 
 #define ARRAY_NTH_REF(arr, index, out)  \

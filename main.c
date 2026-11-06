@@ -11,10 +11,29 @@
 #define NFA_TRANSITION_SET_MAX_SYMBOLS 64
 
 #define NFA_TRANSITION_EPSILON         ((nfa_transition_cond){ .type = NFA_TRANSITION_COND_EPSILON })
-#define NFA_TRANSITION_SYMBOL(s)       ((nfa_transition_cond){ .type = NFA_TRANSITION_COND_SYMBOL, .as.symbol = s })
-#define NFA_TRANSITION_SET(s, n)       ((nfa_transition_cond){ .type = NFA_TRANSITION_COND_SET, .as.set.num_symbols = n, .as.set.symbols = ((char*) (s)) })
 
-#define NFA_FRAGMENT(i, f)             ((nfa_fragment){ .initial = i, .final = f })
+#define NFA_STATE_DEFAULT     \
+    ((nfa_state){             \
+        .is_final = false,    \
+        .is_initial = false,  \
+        .num_transitions = 0, \
+        .transitions = { 0 } })
+
+#define NFA_STATE_INITIAL     \
+    ((nfa_state){             \
+        .is_final = false,    \
+        .is_initial = true,   \
+        .num_transitions = 0, \
+        .transitions = { 0 } })
+
+#define NFA_STATE_FINAL       \
+    ((nfa_state){             \
+        .is_final = true,     \
+        .is_initial = false,  \
+        .num_transitions = 0, \
+        .transitions = { 0 } })
+
+#define NFA_FRAGMENT(i, f) ((nfa_fragment){ .initial = i, .final = f })
 
 #define CEGEX_TRY(expr)        \
     do {                       \
@@ -33,29 +52,20 @@ typedef enum cegex_status
     CEGEX_ERR_UNSUPPORTED
 } cegex_status;
 
-typedef size_t nfa_state_id;
-typedef struct nfa_transition_set
-{
-    size_t num_symbols;
-    char symbols[NFA_TRANSITION_SET_MAX_SYMBOLS];
-} nfa_transition_set;
-
+typedef char byte;
+typedef ARRAY(byte) byte_set;
 typedef struct nfa_transition_cond
 {
     enum
     {
         NFA_TRANSITION_COND_EPSILON,
-        NFA_TRANSITION_COND_SYMBOL,
         NFA_TRANSITION_COND_SET
     } type;
 
-    union
-    {
-        char symbol;
-        nfa_transition_set set;
-    } as;
+    byte_set set;
 } nfa_transition_cond;
 
+typedef size_t nfa_state_id;
 typedef struct nfa_transition
 {
     nfa_state_id to;
@@ -80,82 +90,72 @@ typedef struct nfa_fragment
     nfa_state_id final;
 } nfa_fragment;
 
-typedef struct nfa_builder
+typedef ARRAY(nfa_state) nfa_states;
+typedef ARRAY(nfa_fragment) nfa_fragments;
+
+typedef struct nfa
 {
-    struct
-    {
-        size_t length;
-        size_t capacity;
-        nfa_state* elements;
-    } states;
-} nfa_builder;
+    nfa_states states;
+} nfa;
 
-#define NFA_STATE_DEFAULT     \
-    ((nfa_state){             \
-        .is_final = false,    \
-        .is_initial = false,  \
-        .num_transitions = 0, \
-        .transitions = { 0 } })
-
-#define NFA_STATE_INITIAL     \
-    ((nfa_state){             \
-        .is_final = false,    \
-        .is_initial = true,   \
-        .num_transitions = 0, \
-        .transitions = { 0 } })
-
-#define NFA_STATE_FINAL       \
-    ((nfa_state){             \
-        .is_final = true,     \
-        .is_initial = false,  \
-        .num_transitions = 0, \
-        .transitions = { 0 } })
-
-/// @brief Initializes the builder
-/// @param builder A valid reference to a `nfa_builder` to initialize
+/// @brief Initializes the NFA
+/// @param ctx A valid reference to a `nfa` to initialize
 /// @return `CEGEX_ERR_MEMORY` when allocation of internal array failed
-cegex_status nfa_builder_init(nfa_builder* builder)
+cegex_status nfa_init(nfa* ctx)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
 
-    ARRAY_INIT(&builder->states);
-    if(builder->states.elements == NULL)
+    ARRAY_INIT(&ctx->states);
+    if(ctx->states.elements == NULL)
         return CEGEX_ERR_MEMORY;
 
     return CEGEX_OK;
 }
 
-void nfa_builder_free(nfa_builder* builder)
+void nfa_free(nfa* ctx)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
 
-    if(builder->states.elements != NULL) {
-        ARRAY_FREE(&builder->states);
+    for(size_t i = 0; i < ctx->states.length; i++) {
+        nfa_state* state = NULL;
+        ARRAY_NTH_REF(&ctx->states, i, &state);
+
+        for(size_t j = 0; j < state->num_transitions; j++) {
+            nfa_transition* transition = &state->transitions[j];
+            if(transition->condition.type == NFA_TRANSITION_COND_EPSILON)
+                continue;
+
+            if(transition->condition.set.elements != NULL)
+                ARRAY_FREE(&transition->condition.set);
+        }
     }
+
+    if(ctx->states.elements != NULL)
+        ARRAY_FREE(&ctx->states);
 }
 
 /// @brief Creates a transition from one state to another state using the provided transition condition `cond`
-/// @param builder A initialized reference to a builder
+/// @param ctx A initialized reference to a NFA
 /// @param from The source state id of the transition
 /// @param to The destination state id of the transition
 /// @param cond The transition condition, used to either allow or disallow the transition from the source state to the destination state
 /// @param out The created transition, nullable
 /// @return `CEGEX_ERR_INVALID_ARGUMENT` if the indicies are invalid or there are no transitions available in the `from` state
-cegex_status nfa_builder_transition(
-    nfa_builder* builder,
+cegex_status nfa_create_transition(
+    nfa* ctx,
     nfa_state_id from,
     nfa_state_id to,
     nfa_transition_cond cond,
     nfa_transition** out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
 
     // Are the state indices valid?
-    if(ARRAY_EMPTY(&builder->states) || (builder->states.length <= from || builder->states.length <= to))
+    if(ARRAY_EMPTY(&ctx->states) || (ctx->states.length <= from || ctx->states.length <= to))
         return CEGEX_ERR_INVALID_ARGUMENT;
 
     nfa_state* from_state = NULL;
-    ARRAY_NTH_REF(&builder->states, from, &from_state);
+    ARRAY_NTH_REF(&ctx->states, from, &from_state);
 
     // Are there still transitions available in the `from` state?
     if(from_state->num_transitions >= NFA_STATE_MAX_TRANSITIONS)
@@ -173,23 +173,23 @@ cegex_status nfa_builder_transition(
     return CEGEX_OK;
 }
 
-/// @brief Pushes a new state to the `builder` internal array
-/// @param builder A initialized reference to a builder
+/// @brief Pushes a new state to the `ctx` internal array of states
+/// @param ctx A initialized reference to a NFA
 /// @param state The state to add
 /// @param out The id of the newly added state
 /// @return `CEGEX_ERR_LIMIT` when the state array is full
-cegex_status nfa_builder_state(
-    nfa_builder* builder,
+cegex_status nfa_create_state(
+    nfa* ctx,
     nfa_state state,
     nfa_state_id* out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
 
-    if(builder->states.length >= NFA_MAX_STATES)
+    if(ctx->states.length >= NFA_MAX_STATES)
         return CEGEX_ERR_LIMIT;
 
-    state.id = builder->states.length;
-    ARRAY_PUSH(&builder->states, state);
+    state.id = ctx->states.length;
+    ARRAY_PUSH(&ctx->states, state);
 
     if(out != NULL)
         *out = state.id;
@@ -198,20 +198,20 @@ cegex_status nfa_builder_state(
 }
 
 /// @brief Builds two states with an epsilon transition
-/// @param builder A initialized reference to a builder
+/// @param ctx A initialized reference to a NFA
 /// @param out The output fragment
 /// @return An status code: `CEGEX_OK` on success
-cegex_status nfa_builder_empty(nfa_builder* builder,
-                               nfa_fragment* out)
+cegex_status nfa_create_empty(nfa* ctx,
+                              nfa_fragment* out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
     cegex_status status = CEGEX_OK;
 
     nfa_state_id q0, qF;
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_INITIAL, &q0));
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_FINAL, &qF));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_INITIAL, &q0));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_FINAL, &qF));
 
-    CEGEX_TRY(nfa_builder_transition(builder, q0, qF, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, q0, qF, NFA_TRANSITION_EPSILON, NULL));
 
     if(out != NULL)
         *out = NFA_FRAGMENT(q0, qF);
@@ -219,162 +219,134 @@ cegex_status nfa_builder_empty(nfa_builder* builder,
     return status;
 
 fail:
-    nfa_builder_free(builder);
+    nfa_free(ctx);
     return status;
 }
 
-/// @brief Builds two states with one symbol transition
-/// @param builder A initialized reference to a builder
-/// @param symbol The symbol, used as the transition condition
+/// @brief Builds two states with a transition and a given set of bytes as the transition condition (expands the alphabet of the NFA)
+/// @param ctx A initialized reference to a NFA
+/// @param bytes The set of bytes, used as transition condition
 /// @param out The output fragment
 /// @return An status code: `CEGEX_OK` on success
-cegex_status nfa_builder_symbol(
-    nfa_builder* builder,
-    char symbol,
+cegex_status nfa_create_symbol(
+    nfa* ctx,
+    byte* bytes,
+    size_t n,
     nfa_fragment* out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
     cegex_status status = CEGEX_OK;
 
     nfa_state_id q0, qF;
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_INITIAL, &q0));
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_FINAL, &qF));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_INITIAL, &q0));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_FINAL, &qF));
 
-    CEGEX_TRY(nfa_builder_transition(builder, q0, qF, NFA_TRANSITION_SYMBOL(symbol), NULL));
-
-    if(out != NULL)
-        *out = NFA_FRAGMENT(q0, qF);
-
-    return status;
-fail:
-    nfa_builder_free(builder);
-    return status;
-}
-
-/// @brief Builds two states with a set transition
-/// @param builder A initialized reference to a builder
-/// @param set The transition set used as the transition condition
-/// @param out The output fragment
-/// @return An status code: `CEGEX_OK` on success
-cegex_status nfa_builder_set(
-    nfa_builder* builder,
-    nfa_transition_set set,
-    nfa_fragment* out)
-{
-    assert(builder != NULL);
-    cegex_status status = CEGEX_OK;
-
-    if(set.num_symbols >= NFA_TRANSITION_SET_MAX_SYMBOLS) {
-        status = CEGEX_ERR_LIMIT;
-        goto fail;
+    nfa_transition_cond cond;
+    cond.type = NFA_TRANSITION_COND_SET;
+    ARRAY_INIT(&cond.set);
+    for(size_t i = 0; i < n; i++) {
+        ARRAY_PUSH(&cond.set, bytes[i]);
     }
 
-    nfa_state_id q0, qF;
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_INITIAL, &q0));
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_FINAL, &qF));
-
-    nfa_transition* transition;
-    CEGEX_TRY(nfa_builder_transition(builder, q0, qF, (nfa_transition_cond){ .type = NFA_TRANSITION_COND_SET }, &transition));
-    transition->condition.as.set.num_symbols = set.num_symbols;
-    memcpy(transition->condition.as.set.symbols, set.symbols, set.num_symbols * sizeof(char));
+    CEGEX_TRY(nfa_create_transition(ctx, q0, qF, cond, NULL));
 
     if(out != NULL)
         *out = NFA_FRAGMENT(q0, qF);
 
     return status;
 fail:
-    nfa_builder_free(builder);
+    nfa_free(ctx);
     return status;
 }
 
 /// @brief Build the union of `a` and `b` (`a|b`)
-/// @param builder A initialized reference to a builder
+/// @param ctx A initialized reference to a NFA
 /// @param a The left side of the union expression
 /// @param b The right side of the union expression
 /// @param out The output fragment, where the initial state connects to both `a` and `b`, which in turn connect to a new shared final state
 /// @return An status code: `CEGEX_OK` on success
-cegex_status nfa_builder_union(
-    nfa_builder* builder,
+cegex_status nfa_union(
+    nfa* ctx,
     nfa_fragment a,
     nfa_fragment b,
     nfa_fragment* out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
     cegex_status status = CEGEX_OK;
 
     nfa_state_id q0, qF;
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_INITIAL, &q0));
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_FINAL, &qF));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_INITIAL, &q0));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_FINAL, &qF));
 
-    CEGEX_TRY(nfa_builder_transition(builder, q0, a.initial, NFA_TRANSITION_EPSILON, NULL));
-    CEGEX_TRY(nfa_builder_transition(builder, q0, b.initial, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, q0, a.initial, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, q0, b.initial, NFA_TRANSITION_EPSILON, NULL));
 
-    CEGEX_TRY(nfa_builder_transition(builder, a.final, qF, NFA_TRANSITION_EPSILON, NULL));
-    CEGEX_TRY(nfa_builder_transition(builder, b.final, qF, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, a.final, qF, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, b.final, qF, NFA_TRANSITION_EPSILON, NULL));
 
     if(out != NULL)
         *out = NFA_FRAGMENT(q0, qF);
 
     return status;
 fail:
-    nfa_builder_free(builder);
+    nfa_free(ctx);
     return status;
 }
 
 /// @brief Build the concatination expression of `a` and `b`
-/// @param builder A initialized reference to a builder
+/// @param ctx A initialized reference to a NFA
 /// @param a The left side of the concatination
 /// @param b The right side of the concatination
 /// @param out The output fragment, initial state of `a` is connected to the initial state of `b`
 /// @return An status code: `CEGEX_OK` on success
-cegex_status nfa_builder_concat(
-    nfa_builder* builder,
+cegex_status nfa_concat(
+    nfa* ctx,
     nfa_fragment a,
     nfa_fragment b,
     nfa_fragment* out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
     cegex_status status = CEGEX_OK;
 
-    CEGEX_TRY(nfa_builder_transition(builder, a.final, b.initial, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, a.final, b.initial, NFA_TRANSITION_EPSILON, NULL));
     if(out != NULL)
         *out = NFA_FRAGMENT(a.initial, b.final);
 
     return status;
 fail:
-    nfa_builder_free(builder);
+    nfa_free(ctx);
     return status;
 }
 
 /// @brief Builds a new fragment, where `in` can be either absent or repeated (Kleene star)
-/// @param builder A initialized reference to a builder
+/// @param ctx A initialized reference to a NFA
 /// @param in The input fragment to be wrapped in the Kleene star expression
 /// @param out The ouput fragment
 /// @return An status code: `CEGEX_OK` on success
-cegex_status nfa_builder_star(
-    nfa_builder* builder,
+cegex_status nfa_star(
+    nfa* ctx,
     nfa_fragment in,
     nfa_fragment* out)
 {
-    assert(builder != NULL);
+    assert(ctx != NULL);
     cegex_status status = CEGEX_OK;
 
     nfa_state_id q0, qF;
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_INITIAL, &q0));
-    CEGEX_TRY(nfa_builder_state(builder, NFA_STATE_FINAL, &qF));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_INITIAL, &q0));
+    CEGEX_TRY(nfa_create_state(ctx, NFA_STATE_FINAL, &qF));
 
-    CEGEX_TRY(nfa_builder_transition(builder, q0, in.initial, NFA_TRANSITION_EPSILON, NULL));
-    CEGEX_TRY(nfa_builder_transition(builder, q0, qF, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, q0, in.initial, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, q0, qF, NFA_TRANSITION_EPSILON, NULL));
 
-    CEGEX_TRY(nfa_builder_transition(builder, in.final, qF, NFA_TRANSITION_EPSILON, NULL));
-    CEGEX_TRY(nfa_builder_transition(builder, in.final, in.initial, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, in.final, qF, NFA_TRANSITION_EPSILON, NULL));
+    CEGEX_TRY(nfa_create_transition(ctx, in.final, in.initial, NFA_TRANSITION_EPSILON, NULL));
 
     if(out != NULL)
         *out = NFA_FRAGMENT(q0, qF);
 
     return status;
 fail:
-    nfa_builder_free(builder);
+    nfa_free(ctx);
     return status;
 }
 
@@ -400,13 +372,13 @@ bool nfa_id_array_contains(nfa_state_id_array* array,
     return false;
 }
 
-void nfa_digraph_str(nfa_builder* builder,
+void nfa_digraph_str(nfa* ctx,
                      nfa_fragment fragment,
                      char* buffer,
                      size_t n)
 {
-    assert(builder != NULL);
-    if(builder->states.length == 0 || n == 0) {
+    assert(ctx != NULL);
+    if(ctx->states.length == 0 || n == 0) {
         return;
     }
 
@@ -421,12 +393,13 @@ void nfa_digraph_str(nfa_builder* builder,
         goto finally;
 
     ARRAY_PUSH(&stack, fragment.initial);
+    char label_buffer[((NFA_TRANSITION_SET_MAX_SYMBOLS * 2) + 2) + 1];
     do {
         nfa_state_id top = 0;
         ARRAY_POP(&stack, &top);
 
         nfa_state* state = NULL;
-        ARRAY_NTH_REF(&builder->states, top, &state);
+        ARRAY_NTH_REF(&ctx->states, top, &state);
 
         if(state->is_final && state->id == fragment.final) {
             continue;
@@ -438,20 +411,15 @@ void nfa_digraph_str(nfa_builder* builder,
                 written += (size_t) snprintf(buffer + written, n, "\tq%zu -> q%zu [label=\"&#949;\"];\n", transition->from, transition->to);
                 if(written >= n)
                     goto finally;
-            } else if(transition->condition.type == NFA_TRANSITION_COND_SYMBOL) {
-                written += (size_t) snprintf(buffer + written, n, "\tq%zu -> q%zu [label=\"%c\"];\n", transition->from, transition->to, transition->condition.as.symbol);
-                if(written >= n)
-                    goto finally;
-            } else if(transition->condition.type == NFA_TRANSITION_COND_SET) {
+            } else {
                 size_t label_buffer_length = 0;
-                char label_buffer[((NFA_TRANSITION_SET_MAX_SYMBOLS * 2) + 2) + 1];
 
                 label_buffer[label_buffer_length++] = '{';
-                for(size_t j = 0; j < transition->condition.as.set.num_symbols; j++) {
-                    char symbol = transition->condition.as.set.symbols[j];
+                for(size_t j = 0; j < transition->condition.set.length; j++) {
+                    char symbol = transition->condition.set.elements[j];
                     label_buffer[label_buffer_length++] = symbol;
 
-                    if(j + 1 != transition->condition.as.set.num_symbols)
+                    if(j + 1 != transition->condition.set.length)
                         label_buffer[label_buffer_length++] = ',';
                 }
                 label_buffer[label_buffer_length++] = '}';
@@ -486,37 +454,45 @@ finally:
     ARRAY_FREE(&stack);
 }
 
+void nfa_matches(nfa* ctx,
+                 nfa_fragment fragment,
+                 const char* subject)
+{
+}
+
+#define NFA_CREATE_SYMBOL(n, c, o) nfa_create_symbol(n, ((byte[1]){ c }), 1, o)
+#define NFA_CREATE_SYMBOL_N(ctx, data, out) \
+    nfa_create_symbol((ctx), (data), sizeof(data) / sizeof((data)[0]), (out))
+
 int main(void)
 {
     cegex_status status = CEGEX_OK;
-    nfa_fragment a, b, c, ab, unioned, repeated, root;
+    nfa_fragment abde, de, a, a2, b, c, ab, unioned, repeated, root;
 
-    nfa_builder builder;
-    nfa_builder_init(&builder);
+    nfa ctx;
+    nfa_init(&ctx);
 
-    nfa_transition_set set;
-    set.num_symbols = 2;
-    set.symbols[0] = 'd';
-    set.symbols[1] = 'e';
-    CEGEX_TRY(nfa_builder_set(&builder, set, &a));
+    CEGEX_TRY(NFA_CREATE_SYMBOL_N(&ctx, ((byte[]){ 'd', 'e' }), &de));
+    CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'a', &a));
+    CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'a', &a2));
+    CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'b', &b));
+    CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'c', &c));
 
-    CEGEX_TRY(nfa_builder_symbol(&builder, 'b', &b));
-    CEGEX_TRY(nfa_builder_concat(&builder, a, b, &ab));
-    CEGEX_TRY(nfa_builder_symbol(&builder, 'a', &a));
-    CEGEX_TRY(nfa_builder_union(&builder, ab, a, &unioned));
-    CEGEX_TRY(nfa_builder_star(&builder, unioned, &repeated));
-    CEGEX_TRY(nfa_builder_symbol(&builder, 'c', &c));
-    CEGEX_TRY(nfa_builder_concat(&builder, repeated, c, &root));
+    CEGEX_TRY(nfa_concat(&ctx, a, b, &ab));          // ab
+    CEGEX_TRY(nfa_concat(&ctx, ab, de, &abde));      // ab[de]
+    CEGEX_TRY(nfa_union(&ctx, abde, a2, &unioned));  // ab[de]|a
+    CEGEX_TRY(nfa_star(&ctx, unioned, &repeated));   // (ab[de]|a)*
+    CEGEX_TRY(nfa_concat(&ctx, repeated, c, &root)); // (ab[de]|a)*c
 
     char buffer[1024];
-    nfa_digraph_str(&builder, root, buffer, 1024);
-    nfa_builder_free(&builder);
+    nfa_digraph_str(&ctx, root, buffer, 1024);
+    nfa_free(&ctx);
 
     printf("%s", buffer);
     return 0;
 
 fail:
     fprintf(stderr, "Error occured");
-    nfa_builder_free(&builder);
+    nfa_free(&ctx);
     return 1;
 }
