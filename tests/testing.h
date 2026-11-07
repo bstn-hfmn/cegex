@@ -32,6 +32,20 @@ static struct
         }                                       \
     } while(0)
 
+#define EXPECT_NOT_NULL(pointer)                                       \
+    do {                                                               \
+        if(pointer == NULL) {                                          \
+            REPORT_FAILURE("%s is null, expected not null", #pointer); \
+        }                                                              \
+    } while(0)
+
+#define EXPECT_NULL(pointer)                                           \
+    do {                                                               \
+        if(pointer != NULL) {                                          \
+            REPORT_FAILURE("%s is not null, expected null", #pointer); \
+        }                                                              \
+    } while(0)
+
 #define RUN_TEST(fn)                           \
     do {                                       \
         size_t failed = _testing_stats.failed; \

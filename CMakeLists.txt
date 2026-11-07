@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10.0)
 project(cegex VERSION 0.1.0 LANGUAGES C)
 
 option(CEGEX_BUILD_TESTS "Build and run the cegex tests" OFF)
+set(CEGEX_BUILD_TESTS ON)
 
 function(cegex_configure_target target)
     set_target_properties(${target} PROPERTIES
@@ -43,8 +44,12 @@ if(CEGEX_BUILD_TESTS)
  
         add_executable(${test_target} ${test_source} ${CEGEX_UTIL_SOURCES})
         cegex_configure_target(${test_target})
+
+        set_target_properties(${test_target} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
+        )
+
         add_test(NAME ${test_name} COMMAND ${test_target})
- 
         list(APPEND CEGEX_TEST_TARGETS ${test_target})
     endforeach()
  

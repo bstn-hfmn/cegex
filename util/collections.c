@@ -54,15 +54,15 @@ void array_free(void** elements,
                 size_t* capacity)
 {
     assert(elements != NULL);
-    assert(length != NULL);
-    assert(capacity != NULL);
 
     if(*elements != NULL) {
         free(*elements);
-
         *elements = NULL;
-        *length = 0;
-        *capacity = 0;
+
+        if(length != NULL)
+            *length = 0;
+        if(capacity != NULL)
+            *capacity = 0;
     }
 }
 
@@ -80,8 +80,10 @@ void array_nth(void** elements,
     assert(elements != NULL);
     assert(out != NULL);
 
-    if(index >= length)
+    if(index >= length) {
+        out = NULL;
         return;
+    }
 
     memcpy((char*) out, (char*) *elements + index * stride, stride);
 }
@@ -95,8 +97,10 @@ void array_nth_ref(void** elements,
     assert(elements != NULL);
     assert(out != NULL);
 
-    if(index >= length)
+    if(index >= length) {
+        *out = NULL;
         return;
+    }
 
     *out = (char*) *elements + (index * stride);
 }
@@ -106,12 +110,14 @@ void array_grow(void** elements,
                 size_t stride)
 {
     size_t next_capacity;
-    if(!next_prime_capacity((*capacity) + 1, &next_capacity))
+    if(!next_prime_capacity((*capacity) + 1, &next_capacity)) {
         return;
+    }
 
     void* tmp = realloc(*elements, next_capacity * stride);
-    if(tmp == NULL)
+    if(tmp == NULL) {
         return;
+    }
 
     *elements = tmp;
     *capacity = next_capacity;

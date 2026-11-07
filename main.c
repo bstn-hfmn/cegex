@@ -11,7 +11,7 @@
 #define NFA_TRANSITION_SET_MAX_SYMBOLS 64
 
 #define NFA_CREATE_SYMBOL(n, c, o)     nfa_create_symbol(n, ((byte[1]){ c }), 1, o)
-#define NFA_CREATE_SYMBOL_N(ctx, data, out) \
+#define NFA_CREATE_SYMBOLS(ctx, data, out) \
     nfa_create_symbol((ctx), (data), sizeof(data) / sizeof((data)[0]), (out))
 
 #define NFA_TRANSITION_EPSILON ((nfa_transition_cond){ .type = NFA_TRANSITION_COND_EPSILON })
@@ -375,8 +375,8 @@ void nfa_digraph_str(nfa* ctx,
     if(written >= n)
         goto finally;
 
+    char label[((NFA_TRANSITION_SET_MAX_SYMBOLS * 2) + 2) + 1];
     ARRAY_PUSH(&stack, fragment.initial);
-    char label_buffer[((NFA_TRANSITION_SET_MAX_SYMBOLS * 2) + 2) + 1];
     do {
         nfa_state_id top = 0;
         ARRAY_POP(&stack, &top);
@@ -395,20 +395,20 @@ void nfa_digraph_str(nfa* ctx,
                 if(written >= n)
                     goto finally;
             } else {
-                size_t label_buffer_length = 0;
+                size_t label_length = 0;
 
-                label_buffer[label_buffer_length++] = '{';
+                label[label_length++] = '{';
                 for(size_t j = 0; j < transition->condition.set.length; j++) {
                     char symbol = transition->condition.set.elements[j];
-                    label_buffer[label_buffer_length++] = symbol;
+                    label[label_length++] = symbol;
 
                     if(j + 1 != transition->condition.set.length)
-                        label_buffer[label_buffer_length++] = ',';
+                        label[label_length++] = ',';
                 }
-                label_buffer[label_buffer_length++] = '}';
-                label_buffer[label_buffer_length] = '\0';
+                label[label_length++] = '}';
+                label[label_length] = '\0';
 
-                written += (size_t) snprintf(buffer + written, n, "\tq%zu -> q%zu [label=\"%s\"];\n", transition->from, transition->to, label_buffer);
+                written += (size_t) snprintf(buffer + written, n, "\tq%zu -> q%zu [label=\"%s\"];\n", transition->from, transition->to, label);
                 if(written >= n)
                     goto finally;
             }
@@ -451,7 +451,7 @@ int main(void)
     nfa ctx;
     nfa_init(&ctx);
 
-    CEGEX_TRY(NFA_CREATE_SYMBOL_N(&ctx, ((byte[]){ 'd', 'e' }), &de));
+    CEGEX_TRY(NFA_CREATE_SYMBOLS(&ctx, ((byte[]){ 'd', 'e' }), &de));
     CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'a', &a));
     CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'a', &a2));
     CEGEX_TRY(NFA_CREATE_SYMBOL(&ctx, 'b', &b));
