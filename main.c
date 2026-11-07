@@ -355,6 +355,12 @@ fail:
     return status;
 }
 
+bool nfa_state_id_eq(nfa_state_id* a,
+                     nfa_state_id* b)
+{
+    return *a == *b;
+}
+
 void nfa_digraph_str(nfa* ctx,
                      nfa_fragment fragment,
                      char* buffer,
@@ -413,7 +419,7 @@ void nfa_digraph_str(nfa* ctx,
                     goto finally;
             }
 
-            if(!ARRAY_CONTAINS(&visited, transition->to)) {
+            if(!ARRAY_CONTAINS(&visited, transition->to, (comparator) nfa_state_id_eq)) {
                 ARRAY_PUSH(&stack, transition->to);
                 ARRAY_PUSH(&visited, transition->to);
             }
@@ -437,11 +443,136 @@ finally:
     ARRAY_FREE(&stack);
 }
 
-void nfa_matches(nfa* ctx,
-                 nfa_fragment fragment,
-                 const char* subject)
+typedef struct nfa_match_entry
 {
+    size_t subject_index;
+    nfa_state_id state_id;
+} nfa_match_entry;
+
+typedef ARRAY(nfa_match_entry) match_entry_array;
+
+bool nfa_match_entry_eq(nfa_match_entry* a,
+                        nfa_match_entry* b)
+{
+    return a->state_id == b->state_id && a->subject_index == b->subject_index;
 }
+
+bool single_byte_eq(byte* a,
+                    byte* b)
+{
+    return *a == *b;
+}
+
+bool nfa_matches(const nfa* const ctx,
+                 nfa_fragment fragment,
+                 const char* subject,
+                 size_t n)
+{
+    assert(ctx != NULL);
+    assert(subject != NULL);
+    bool matched = false;
+
+    match_entry_array stack;
+    match_entry_array visited;
+    ARRAY_INIT(&stack);
+    ARRAY_INIT(&visited);
+
+    nfa_state* initial;
+    ARRAY_NTH_REF(&ctx->states, fragment.initial, &initial);
+    if(initial == NULL)
+        goto end;
+
+    ARRAY_PUSH(&stack, ((nfa_match_entry){
+                           .state_id = initial->id,
+                           .subject_index = 0 }));
+
+    do {
+        nfa_match_entry entry;
+        ARRAY_POP(&stack, &entry);
+        if(ARRAY_CONTAINS(&visited, entry, (comparator) nfa_match_entry_eq))
+            continue;
+        else
+            ARRAY_PUSH(&visited, entry);
+
+        nfa_state* state;
+        ARRAY_NTH_REF(&ctx->states, entry.state_id, &state);
+
+        if((state->is_final && state->id == fragment.final) && entry.subject_index == n) {
+            matched = true;
+            break;
+        }
+
+        for(size_t i = 0; i < state->num_transitions; i++) {
+            nfa_transition* transition = &state->transitions[i];
+
+            if(NFA_TRANSITION_COND_EPSILON == transition->condition.type) {
+                ARRAY_PUSH(&stack, ((nfa_match_entry){
+                                       .state_id = transition->to,
+                                       .subject_index = entry.subject_index }));
+            }
+
+            if(NFA_TRANSITION_COND_SET == transition->condition.type) {
+                if(entry.subject_index >= n)
+                    continue;
+
+                byte_set set = transition->condition.set;
+                byte current = subject[entry.subject_index];
+                if(ARRAY_CONTAINS(&set, current, (comparator) single_byte_eq)) {
+                    ARRAY_PUSH(&stack, ((nfa_match_entry){
+                                           .state_id = transition->to,
+                                           .subject_index = entry.subject_index + 1 }));
+                }
+            }
+        }
+    } while(!ARRAY_EMPTY(&stack));
+
+end:
+    ARRAY_FREE(&stack);
+    ARRAY_FREE(&visited);
+    return matched;
+}
+
+typedef struct nfa_test_case
+{
+    const char* subject;
+    size_t length;
+    bool expected;
+} nfa_test_case;
+
+static const nfa_test_case test_cases[] = {
+    { "c", 1, true },
+    { "ac", 2, true },
+    { "aac", 3, true },
+    { "aaac", 4, true },
+    { "abdc", 4, true },
+    { "abec", 4, true },
+    { "abdabdc", 7, true },
+    { "abdabec", 7, true },
+    { "aabdc", 5, true },
+    { "abdaac", 6, true },
+    { "aabdaac", 7, true },
+    { "abdaabec", 8, true },
+    { "aabdabdaac", 10, true },
+
+    { "", 0, false },
+    { "a", 1, false },
+    { "ab", 2, false },
+    { "abd", 3, false },
+    { "abc", 3, false },
+    { "abfc", 4, false },
+    { "abcc", 4, false },
+    { "abac", 4, false },
+    { "bac", 3, false },
+    { "dac", 3, false },
+    { "acb", 3, false },
+    { "acc", 3, false },
+    { "aca", 3, false },
+    { "abcd", 4, false },
+    { "abdcx", 5, false },
+    { "cc", 2, false },
+    { "cac", 3, false },
+    { "abecabdc", 8, false },
+};
 
 int main(void)
 {
@@ -463,15 +594,27 @@ int main(void)
     CEGEX_TRY(nfa_star(&ctx, unioned, &repeated));   // (ab[de]|a)*
     CEGEX_TRY(nfa_concat(&ctx, repeated, c, &root)); // (ab[de]|a)*c
 
+    for(size_t i = 0; i < sizeof(test_cases) / sizeof(test_cases[0]); ++i) {
+        const nfa_test_case* test = &test_cases[i];
+
+        bool actual = nfa_matches(
+            &ctx,
+            root,
+            test->subject,
+            test->length);
+
+        printf("\"%s\" matches /%s/ : %s (expected: %s)\n", test->subject, "(ab[de]|a)*c", actual ? "true" : "false", test->expected ? "true" : "false");
+    }
+
     char buffer[1024];
     nfa_digraph_str(&ctx, root, buffer, 1024);
     nfa_free(&ctx);
 
-    printf("%s", buffer);
+    // printf("%s", buffer);
     return 0;
 
 fail:
     fprintf(stderr, "Error occured");
     nfa_free(&ctx);
-    return 1;
+    return status;
 }

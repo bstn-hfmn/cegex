@@ -163,14 +163,15 @@ void array_push(void** elements,
 bool array_contains(void** elements,
                     size_t length,
                     size_t stride,
-                    void* needle)
+                    void* needle,
+                    comparator fn)
 {
     assert(elements != NULL);
     assert(needle != NULL);
 
     for(size_t i = 0; i < length; i++) {
         char* element = (char*) *elements + i * stride;
-        if(memcmp(element, needle, stride) == 0)
+        if(fn(element, needle))
             return true;
     }
 
