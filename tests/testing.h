@@ -32,6 +32,15 @@ static struct
         }                                       \
     } while(0)
 
+#define EXPECT_EQ_GOTO(actual, expected, go)    \
+    do {                                        \
+        if(actual != expected) {                \
+            REPORT_FAILURE("%s == %s failed",   \
+                           #actual, #expected); \
+            goto go;                            \
+        }                                       \
+    } while(0)
+
 #define EXPECT_NOT_NULL(pointer)                                       \
     do {                                                               \
         if(pointer == NULL) {                                          \

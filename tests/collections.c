@@ -1,4 +1,4 @@
-#include "../util/collections.h"
+#include "../src/util/collections.h"
 #include "testing.h"
 
 typedef struct test_struct

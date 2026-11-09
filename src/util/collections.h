@@ -1,7 +1,8 @@
-#ifndef UTIL_ARRAY_H
-#define UTIL_ARRAY_H
+#ifndef CEGEX_UTIL_ARRAY_H
+#define CEGEX_UTIL_ARRAY_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #define ARRAY_MAX_CAPACITY 100663319
 

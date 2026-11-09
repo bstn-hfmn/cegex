@@ -23,7 +23,9 @@ function(cegex_configure_target target)
 endfunction()
 
 set(CEGEX_UTIL_SOURCES
-    util/collections.h util/collections.c)
+    src/automata.h src/automata.c
+    src/util/debug.h src/util/debug.c
+    src/util/collections.h src/util/collections.c)
 
 add_executable(cegex main.c ${CEGEX_UTIL_SOURCES})
 cegex_configure_target(cegex)
