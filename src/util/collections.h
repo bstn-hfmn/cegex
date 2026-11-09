@@ -14,6 +14,14 @@
         t* elements;     \
     }
 
+#define ITERATOR(t)    \
+    struct             \
+    {                  \
+        size_t index;  \
+        size_t length; \
+        t* elements;   \
+    }
+
 #define ARRAY_INIT(arr)                 array_init((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity, sizeof(*(arr)->elements))
 #define ARRAY_FREE(arr)                 array_free((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity)
 
