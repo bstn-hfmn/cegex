@@ -55,18 +55,40 @@ void iterator_init(void** elements,
                    size_t capcity,
                    void* source);
 
+/// @brief Checks whether the iterator is empty
+/// @param index The current index of the iterator
+/// @param length The length of the iterator
+/// @return `true` if the iterator is empty, `false` if not
 bool iterator_empty(size_t index,
                     size_t length);
 
+/// @brief Returns the next element in the iterator without moving the internal index
+/// @param elements Array of elements of this iterator
+/// @param index The current index of the iterator
+/// @param length The length of the iterator
+/// @param stride The amount of bytes each element occupies
+/// @param out The next element, if there is one
+/// @return `CEGEX_ERR_LIMIT` if the next element would be out of range
 cegex_status iterator_peek(void** elements,
                            size_t index,
                            size_t length,
                            size_t stride,
                            void* out);
 
+/// @brief Moves the iterator one element
+/// @param index Reference to the current index of the iterator
+/// @param length The length of the iterator
+/// @return `CEGEX_ERR_LIMIT` if it is empty or moved on the last index
 cegex_status iterator_next(size_t* index,
                            size_t length);
 
+/// @brief Retrives the current item of the iterator
+/// @param elements Array of elements of this iterator
+/// @param index The current index of the iterator
+/// @param length The length of the iterator
+/// @param stride The amount of bytes each element occupies
+/// @param out Output parameter, the current element of the iterator
+/// @return `CEGEX_OK`
 cegex_status iterator_current(void** elements,
                               size_t index,
                               size_t length,

@@ -13,6 +13,7 @@ typedef struct test_struct
 } test_struct;
 
 typedef ARRAY(test_struct) test_array;
+typedef ITERATOR(test_struct) test_iterator;
 
 static void test_array_init(void)
 {
@@ -131,6 +132,82 @@ static void test_capacity_grow(void)
     ARRAY_FREE(&arr);
 }
 
+static void test_iterator_init(void)
+{
+    test_struct arr[3] = {
+        { .index = 0 },
+        { .index = 1 },
+        { .index = 2 },
+    };
+
+    test_iterator it;
+    ITERATOR_INIT(&it, arr, 3);
+
+    EXPECT_EQ(it.length, 3);
+    EXPECT_EQ(it.index, 0);
+    EXPECT_NOT_NULL(it.elements);
+}
+
+static void test_iterator_next(void)
+{
+    test_struct arr[3] = {
+        { .index = 0 },
+        { .index = 1 },
+        { .index = 2 },
+    };
+
+    test_iterator it;
+    ITERATOR_INIT(&it, arr, 3);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_OK);
+    EXPECT_EQ(it.index, 1);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_OK);
+    EXPECT_EQ(it.index, 2);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_ERR_LIMIT);
+    EXPECT_EQ(it.index, 3);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_ERR_LIMIT);
+    EXPECT_EQ(it.index, 3);
+}
+
+static void test_iterator_peek_curr(void)
+{
+    test_struct arr[3] = {
+        { .index = 0 },
+        { .index = 1 },
+        { .index = 2 },
+    };
+
+    test_iterator it;
+    ITERATOR_INIT(&it, arr, 3);
+
+    test_struct el;
+    EXPECT_EQ(ITERATOR_PEEK(&it, &el), CEGEX_OK);
+    EXPECT_EQ(el.index, 1);
+
+    EXPECT_EQ(ITERATOR_CURRENT(&it, &el), CEGEX_OK);
+    EXPECT_EQ(el.index, 0);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_OK);
+    EXPECT_EQ(ITERATOR_PEEK(&it, &el), CEGEX_OK);
+    EXPECT_EQ(el.index, 2);
+
+    EXPECT_EQ(ITERATOR_CURRENT(&it, &el), CEGEX_OK);
+    EXPECT_EQ(el.index, 1);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_OK);
+    EXPECT_EQ(ITERATOR_PEEK(&it, &el), CEGEX_ERR_LIMIT);
+
+    EXPECT_EQ(ITERATOR_CURRENT(&it, &el), CEGEX_OK);
+    EXPECT_EQ(el.index, 2);
+
+    EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_ERR_LIMIT);
+    EXPECT_EQ(ITERATOR_CURRENT(&it, &el), CEGEX_OK);
+    EXPECT_EQ(el.index, 2);
+}
+
 int main(void)
 {
     RUN_TEST(test_array_init);
@@ -138,6 +215,10 @@ int main(void)
     RUN_TEST(test_array_pop);
     RUN_TEST(test_array_nth);
     RUN_TEST(test_capacity_grow);
+
+    RUN_TEST(test_iterator_init);
+    RUN_TEST(test_iterator_next);
+    RUN_TEST(test_iterator_peek_curr);
 
     return print_summary();
 }
