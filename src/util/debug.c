@@ -2,10 +2,10 @@
 #include <assert.h>
 #include <stdio.h>
 
-void nfa_digraph_str(nfa* ctx,
-                     nfa_fragment fragment,
-                     char* buffer,
-                     size_t n)
+void cegex_nfa_digraph_str(nfa* ctx,
+                           nfa_fragment fragment,
+                           char* buffer,
+                           size_t n)
 {
     assert(ctx != NULL);
     if(ctx->states.length == 0 || n == 0) {

@@ -22,6 +22,12 @@
         t* elements;   \
     }
 
+#define ITERATOR_INIT(it, src, n)       iterator_init((void**) &(it)->elements, &(it)->index, &(it)->length, (n), (void*) (src))
+#define ITERATOR_EMPTY(it)              iterator_empty((it)->index, (it)->length)
+#define ITERATOR_PEEK(it, out)          iterator_peek((void**) &(it)->elements, (it)->index, (it)->length, sizeof(*(it)->elements), (void*) (out))
+#define ITERATOR_NEXT(it)               iterator_next(&(it)->index, (it)->length)
+#define ITERATOR_CURRENT(it, out)       iterator_current((void**) &(it)->elements, (it)->index, (it)->length, sizeof(*(it)->elements), (void*) (out))
+
 #define ARRAY_INIT(arr)                 array_init((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity, sizeof(*(arr)->elements))
 #define ARRAY_FREE(arr)                 array_free((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity)
 
@@ -41,6 +47,32 @@ typedef bool (*comparator)(void*,
 bool next_prime_capacity(size_t n,
                          size_t* out);
 
+/*-------------------- iterator --------------------*/
+void iterator_init(void** elements,
+                   size_t* index,
+                   size_t* length,
+                   size_t capcity,
+                   void* source);
+
+bool iterator_empty(size_t index,
+                    size_t length);
+
+bool iterator_peek(void** elements,
+                   size_t index,
+                   size_t length,
+                   size_t stride,
+                   void* out);
+
+bool iterator_next(size_t* index,
+                   size_t length);
+
+bool iterator_current(void** elements,
+                      size_t index,
+                      size_t length,
+                      size_t stride,
+                      void* out);
+
+/*-------------------- array --------------------*/
 void array_init(void** elements,
                 size_t* length,
                 size_t* capacity,
@@ -52,28 +84,28 @@ void array_free(void** elements,
 
 bool array_empty(size_t length);
 
-void array_nth(void** elements,
+bool array_nth(void** elements,
                size_t length,
                size_t index,
                size_t stride,
                void* out);
 
-void array_nth_ref(void** elements,
+bool array_nth_ref(void** elements,
                    size_t length,
                    size_t index,
                    size_t stride,
                    void** out);
 
-void array_grow(void** elements,
+bool array_grow(void** elements,
                 size_t* capacity,
                 size_t stride);
 
-void array_pop(void** elements,
+bool array_pop(void** elements,
                size_t* length,
                size_t stride,
                void* out);
 
-void array_push(void** elements,
+bool array_push(void** elements,
                 size_t* length,
                 size_t* capacity,
                 size_t stride,

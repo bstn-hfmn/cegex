@@ -35,6 +35,75 @@ bool next_prime_capacity(size_t n,
     return true;
 }
 
+void iterator_init(void** elements,
+                   size_t* index,
+                   size_t* length,
+                   size_t capcity,
+                   void* source)
+{
+    assert(elements != NULL);
+    assert(length != NULL);
+    assert(index != NULL);
+    assert(source != NULL);
+
+    *elements = source;
+    *length = capcity;
+    *index = 0;
+}
+
+bool iterator_empty(size_t index,
+                    size_t length)
+{
+    return index >= length;
+}
+
+bool iterator_peek(void** elements,
+                   size_t index,
+                   size_t length,
+                   size_t stride,
+                   void* out)
+{
+    assert(elements != NULL);
+
+    if(index + 1 >= length)
+        return false;
+
+    if(out != NULL) {
+        memcpy((char*) out, (char*) *elements + (index + 1) * stride, stride);
+    }
+
+    return true;
+}
+
+bool iterator_next(size_t* index,
+                   size_t length)
+{
+    assert(index != NULL);
+    if(*index >= length)
+        return false;
+
+    ++(*index);
+    return *index < length;
+}
+
+bool iterator_current(void** elements,
+                      size_t index,
+                      size_t length,
+                      size_t stride,
+                      void* out)
+{
+    assert(elements != NULL);
+
+    if(index >= length)
+        return false;
+
+    if(out != NULL) {
+        memcpy((char*) out, (char*) *elements + index * stride, stride);
+    }
+
+    return true;
+}
+
 void array_init(void** elements,
                 size_t* length,
                 size_t* capacity,
@@ -71,7 +140,7 @@ bool array_empty(size_t length)
     return length == 0;
 }
 
-void array_nth(void** elements,
+bool array_nth(void** elements,
                size_t length,
                size_t index,
                size_t stride,
@@ -81,14 +150,14 @@ void array_nth(void** elements,
     assert(out != NULL);
 
     if(index >= length) {
-        out = NULL;
-        return;
+        return false;
     }
 
     memcpy((char*) out, (char*) *elements + index * stride, stride);
+    return true;
 }
 
-void array_nth_ref(void** elements,
+bool array_nth_ref(void** elements,
                    size_t length,
                    size_t index,
                    size_t stride,
@@ -99,31 +168,33 @@ void array_nth_ref(void** elements,
 
     if(index >= length) {
         *out = NULL;
-        return;
+        return false;
     }
 
     *out = (char*) *elements + (index * stride);
+    return true;
 }
 
-void array_grow(void** elements,
+bool array_grow(void** elements,
                 size_t* capacity,
                 size_t stride)
 {
     size_t next_capacity;
     if(!next_prime_capacity((*capacity) + 1, &next_capacity)) {
-        return;
+        return false;
     }
 
     void* tmp = realloc(*elements, next_capacity * stride);
     if(tmp == NULL) {
-        return;
+        return false;
     }
 
     *elements = tmp;
     *capacity = next_capacity;
+    return true;
 }
 
-void array_pop(void** elements,
+bool array_pop(void** elements,
                size_t* length,
                size_t stride,
                void* out)
@@ -132,16 +203,17 @@ void array_pop(void** elements,
     assert(length != NULL);
 
     if(array_empty(*length))
-        return;
+        return false;
 
     if(out != NULL) {
         memcpy((char*) out, (char*) *elements + (((*length) - 1) * stride), stride);
     }
 
     (*length)--;
+    return true;
 }
 
-void array_push(void** elements,
+bool array_push(void** elements,
                 size_t* length,
                 size_t* capacity,
                 size_t stride,
@@ -153,11 +225,15 @@ void array_push(void** elements,
     assert(element != NULL);
 
     if(*length >= *capacity) {
-        array_grow(elements, capacity, stride);
+        if(!array_grow(elements, capacity, stride)) {
+            return false;
+        }
     }
 
     memcpy((char*) *elements + (*length * stride), element, stride);
     (*length)++;
+
+    return true;
 }
 
 bool array_contains(void** elements,
