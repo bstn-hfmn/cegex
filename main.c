@@ -31,7 +31,7 @@ typedef enum cegex_token_type
     CEGEX_TOKEN_ESCAPE_CARRIAGE_RETURN, // \r
     CEGEX_TOKEN_ESCAPE_VERTICAL_TAB,    // \v
     CEGEX_TOKEN_ESCAPE_OCTAL,           // \123 (up to three digits)
-    CEGEX_TOKEN_ESCAPE_HEX,             // \x7F (exactly two digits)
+    CEGEX_TOKEN_ESCAPE_HEX,             // \x7F (up to two digits)
     CEGEX_TOKEN_STAR,
     CEGEX_TOKEN_PLUS,
     CEGEX_TOKEN_QUESTION_MARK,
@@ -145,7 +145,7 @@ cegex_token_type cegex_token_type_from_char(char needle)
     }
 }
 
-const char* cegex_tokenizer_token_text(cegex_token_type type)
+const char* cegex_token_str(cegex_token_type type)
 {
     const size_t LENGTH = sizeof(token_texts) / sizeof(cegex_token_text);
 
@@ -155,7 +155,7 @@ const char* cegex_tokenizer_token_text(cegex_token_type type)
         }
     }
 
-    return NULL;
+    return "CEGEX_TOKEN_UNKNOWN";
 }
 
 cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx)
@@ -185,7 +185,7 @@ void cegex_tokenizer_consume_digits(cegex_tokenizer* ctx,
 {
     char peeked;
     for(size_t i = 0; i < len; i++) {
-        if(!ITERATOR_PEEK(&ctx->iterator, &peeked) || !pred((unsigned char) peeked))
+        if((CEGEX_OK != ITERATOR_PEEK(&ctx->iterator, &peeked)) || !pred((unsigned char) peeked))
             break;
 
         ITERATOR_NEXT(&ctx->iterator);
@@ -202,24 +202,28 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
         return CEGEX_ERR_LIMIT;
     }
 
-    cegex_token_array* array = &ctx->token_arrays[ctx->token_arrays_length++];
-    ARRAY_INIT(array);
+    cegex_status status = CEGEX_OK;
+    cegex_token_array array = { 0 };
+
+    CEGEX_TRY(ARRAY_INIT(&array));
     ITERATOR_INIT(&ctx->iterator, source, n);
 
     while(!ITERATOR_EMPTY(&ctx->iterator)) {
         char current;
-        ITERATOR_CURRENT(&ctx->iterator, &current);
+        CEGEX_TRY(ITERATOR_CURRENT(&ctx->iterator, &current));
 
         cegex_token token = { 0 };
         token.start = ctx->iterator.index;
 
         if(current == '\\') {
             // Escape sequence or perl character class
-            if(!ITERATOR_NEXT(&ctx->iterator)) {
-                return CEGEX_ERR_SYNTAX;
+            if(CEGEX_OK != ITERATOR_NEXT(&ctx->iterator)) {
+                status = CEGEX_ERR_SYNTAX;
+                goto fail;
             }
 
-            ITERATOR_CURRENT(&ctx->iterator, &current);
+            CEGEX_TRY(ITERATOR_CURRENT(&ctx->iterator, &current));
+
             switch(current) {
                 // Perl character classes
             case 'w':
@@ -288,13 +292,19 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
         ITERATOR_NEXT(&ctx->iterator);
 
         token.length = ctx->iterator.index - token.start;
-        ARRAY_PUSH(array, token);
+        CEGEX_TRY(ARRAY_PUSH(&array, token));
     }
 
+    ctx->token_arrays[ctx->token_arrays_length++] = array;
+
     if(out != NULL)
-        *out = *array;
+        *out = ctx->token_arrays[ctx->token_arrays_length - 1];
 
     return CEGEX_OK;
+
+fail:
+    ARRAY_FREE(&array);
+    return status;
 }
 
 void cegex_tokenizer_free(cegex_tokenizer* ctx)
@@ -313,7 +323,11 @@ int main(void)
 
     cegex_token_array tokens = { 0 };
     const char* expr = "\\xZ[(ab[de]|a)*c";
-    cegex_tokenizer_exec(&ctx, expr, 16, &tokens);
+    if(CEGEX_OK != cegex_tokenizer_exec(&ctx, expr, 16, &tokens)) {
+        printf("Error occured during tokenization\n");
+        cegex_tokenizer_free(&ctx);
+        return 1;
+    }
 
     for(size_t i = 0; i < tokens.length; i++) {
         cegex_token tok = { 0 };
@@ -323,8 +337,9 @@ int main(void)
         memcpy(buf, expr + tok.start, tok.length);
         buf[tok.length] = '\0';
 
-        printf("(%zu): \"%s\"\n", i, buf);
+        printf("(%zu): \"%s\" \t\t(%s)\n", i, buf, cegex_token_str(tok.type));
     }
 
     cegex_tokenizer_free(&ctx);
+    return 0;
 }

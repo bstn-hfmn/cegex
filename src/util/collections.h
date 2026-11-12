@@ -1,6 +1,7 @@
 #ifndef CEGEX_UTIL_ARRAY_H
 #define CEGEX_UTIL_ARRAY_H
 
+#include "../common.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -57,26 +58,26 @@ void iterator_init(void** elements,
 bool iterator_empty(size_t index,
                     size_t length);
 
-bool iterator_peek(void** elements,
-                   size_t index,
-                   size_t length,
-                   size_t stride,
-                   void* out);
+cegex_status iterator_peek(void** elements,
+                           size_t index,
+                           size_t length,
+                           size_t stride,
+                           void* out);
 
-bool iterator_next(size_t* index,
-                   size_t length);
+cegex_status iterator_next(size_t* index,
+                           size_t length);
 
-bool iterator_current(void** elements,
-                      size_t index,
-                      size_t length,
-                      size_t stride,
-                      void* out);
+cegex_status iterator_current(void** elements,
+                              size_t index,
+                              size_t length,
+                              size_t stride,
+                              void* out);
 
 /*-------------------- array --------------------*/
-void array_init(void** elements,
-                size_t* length,
-                size_t* capacity,
-                size_t stride);
+cegex_status array_init(void** elements,
+                        size_t* length,
+                        size_t* capacity,
+                        size_t stride);
 
 void array_free(void** elements,
                 size_t* length,
@@ -84,32 +85,32 @@ void array_free(void** elements,
 
 bool array_empty(size_t length);
 
-bool array_nth(void** elements,
-               size_t length,
-               size_t index,
-               size_t stride,
-               void* out);
+cegex_status array_nth(void** elements,
+                       size_t length,
+                       size_t index,
+                       size_t stride,
+                       void* out);
 
-bool array_nth_ref(void** elements,
-                   size_t length,
-                   size_t index,
-                   size_t stride,
-                   void** out);
+cegex_status array_nth_ref(void** elements,
+                           size_t length,
+                           size_t index,
+                           size_t stride,
+                           void** out);
 
-bool array_grow(void** elements,
-                size_t* capacity,
-                size_t stride);
+cegex_status array_grow(void** elements,
+                        size_t* capacity,
+                        size_t stride);
 
-bool array_pop(void** elements,
-               size_t* length,
-               size_t stride,
-               void* out);
+cegex_status array_pop(void** elements,
+                       size_t* length,
+                       size_t stride,
+                       void* out);
 
-bool array_push(void** elements,
-                size_t* length,
-                size_t* capacity,
-                size_t stride,
-                const void* element);
+cegex_status array_push(void** elements,
+                        size_t* length,
+                        size_t* capacity,
+                        size_t stride,
+                        const void* element);
 
 bool array_contains(void** elements,
                     size_t length,
