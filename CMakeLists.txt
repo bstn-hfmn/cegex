@@ -24,6 +24,7 @@ endfunction()
 
 set(CEGEX_UTIL_SOURCES
     src/automata.h src/automata.c
+    src/tokenizer.h src/tokenizer.c
     src/util/debug.h src/util/debug.c
     src/util/collections.h src/util/collections.c)
 

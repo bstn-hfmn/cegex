@@ -2,6 +2,50 @@
 #include <assert.h>
 #include <stdio.h>
 
+typedef struct cegex_token_text
+{
+    cegex_token_type type;
+    const char* text;
+} cegex_token_text;
+
+static cegex_token_text token_texts[] = {
+    { CEGEX_TOKEN_UNKNOWN, "CEGEX_TOKEN_UNKNOWN" },
+    { CEGEX_TOKEN_CHARACTER, "CEGEX_TOKEN_CHARACTER" },
+    { CEGEX_TOKEN_CLASS_DOT, "CEGEX_TOKEN_CLASS_DOT" },
+    { CEGEX_TOKEN_CLASS_WORD, "CEGEX_TOKEN_CLASS_WORD" },
+    { CEGEX_TOKEN_CLASS_NOT_WORD, "CEGEX_TOKEN_CLASS_NOT_WORD" },
+    { CEGEX_TOKEN_CLASS_DIGIT, "CEGEX_TOKEN_CLASS_DIGIT" },
+    { CEGEX_TOKEN_CLASS_NOT_DIGIT, "CEGEX_TOKEN_CLASS_NOT_DIGIT" },
+    { CEGEX_TOKEN_CLASS_WHITESPACE, "CEGEX_TOKEN_CLASS_WHITESPACE" },
+    { CEGEX_TOKEN_CLASS_NOT_WHITESPACE, "CEGEX_TOKEN_CLASS_NOT_WHITESPACE" },
+    { CEGEX_TOKEN_ANCHOR_START, "CEGEX_TOKEN_ANCHOR_START" },
+    { CEGEX_TOKEN_ANCHOR_END, "CEGEX_TOKEN_ANCHOR_END" },
+    { CEGEX_TOKEN_ANCHOR_BOUNDARY, "CEGEX_TOKEN_ANCHOR_BOUNDARY" },
+    { CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY, "CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY" },
+    { CEGEX_TOKEN_ESCAPE_CHARACTER, "CEGEX_TOKEN_ESCAPE_CHARACTER" },
+    { CEGEX_TOKEN_ESCAPE_BELL, "CEGEX_TOKEN_ESCAPE_BELL" },
+    { CEGEX_TOKEN_ESCAPE_FORM_FEED, "CEGEX_TOKEN_ESCAPE_FORM_FEED" },
+    { CEGEX_TOKEN_ESCAPE_HORIZONTAL_TAB, "CEGEX_TOKEN_ESCAPE_HORIZONTAL_TAB" },
+    { CEGEX_TOKEN_ESCAPE_NEWLINE, "CEGEX_TOKEN_ESCAPE_NEWLINE" },
+    { CEGEX_TOKEN_ESCAPE_CARRIAGE_RETURN, "CEGEX_TOKEN_ESCAPE_CARRIAGE_RETURN" },
+    { CEGEX_TOKEN_ESCAPE_VERTICAL_TAB, "CEGEX_TOKEN_ESCAPE_VERTICAL_TAB" },
+    { CEGEX_TOKEN_ESCAPE_OCTAL, "CEGEX_TOKEN_ESCAPE_OCTAL" },
+    { CEGEX_TOKEN_ESCAPE_HEX, "CEGEX_TOKEN_ESCAPE_HEX" },
+    { CEGEX_TOKEN_STAR, "CEGEX_TOKEN_STAR" },
+    { CEGEX_TOKEN_PLUS, "CEGEX_TOKEN_PLUS" },
+    { CEGEX_TOKEN_MINUS, "CEGEX_TOKEN_MINUS" },
+    { CEGEX_TOKEN_QUESTION_MARK, "CEGEX_TOKEN_QUESTION_MARK" },
+    { CEGEX_TOKEN_COLON, "CEGEX_TOKEN_COLON" },
+    { CEGEX_TOKEN_ALTERNATE, "CEGEX_TOKEN_ALTERNATE" },
+    { CEGEX_TOKEN_PAREN_OPEN, "CEGEX_TOKEN_PAREN_OPEN" },
+    { CEGEX_TOKEN_PAREN_CLOSE, "CEGEX_TOKEN_PAREN_CLOSE" },
+    { CEGEX_TOKEN_SQUARE_OPEN, "CEGEX_TOKEN_SQUARE_OPEN" },
+    { CEGEX_TOKEN_SQUARE_CLOSE, "CEGEX_TOKEN_SQUARE_CLOSE" },
+    { CEGEX_TOKEN_CURLY_OPEN, "CEGEX_TOKEN_CURLY_OPEN" },
+    { CEGEX_TOKEN_CURLY_CLOSE, "CEGEX_TOKEN_CURLY_CLOSE" },
+    { CEGEX_TOKEN_COMMA, "CEGEX_TOKEN_COMMA" }
+};
+
 void cegex_nfa_digraph_str(nfa* ctx,
                            nfa_fragment fragment,
                            char* buffer,
@@ -46,8 +90,8 @@ void cegex_nfa_digraph_str(nfa* ctx,
 
                 label[label_length++] = '{';
                 for(size_t j = 0; j < transition->condition.set.length; j++) {
-                    char symbol = transition->condition.set.elements[j];
-                    label[label_length++] = symbol;
+                    cbyte symbol = transition->condition.set.elements[j];
+                    label[label_length++] = (char) symbol;
 
                     if(j + 1 != transition->condition.set.length)
                         label[label_length++] = ',';
@@ -82,4 +126,17 @@ finally:
 
     ARRAY_FREE(&visited);
     ARRAY_FREE(&stack);
+}
+
+const char* cegex_token_str(cegex_token_type type)
+{
+    const size_t LENGTH = sizeof(token_texts) / sizeof(cegex_token_text);
+
+    for(size_t i = 0; i < LENGTH; i++) {
+        if(type == token_texts[i].type) {
+            return token_texts[i].text;
+        }
+    }
+
+    return "CEGEX_TOKEN_UNKNOWN";
 }

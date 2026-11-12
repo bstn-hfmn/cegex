@@ -8,7 +8,7 @@
 #define NFA_STATE_MAX_TRANSITIONS      2
 #define NFA_TRANSITION_SET_MAX_SYMBOLS 64
 
-#define NFA_CREATE_SYMBOL(n, c, o)     nfa_create_symbol(n, ((byte[1]){ c }), 1, o)
+#define NFA_CREATE_SYMBOL(n, c, o)     nfa_create_symbol(n, ((cbyte[1]){ c }), 1, o)
 #define NFA_CREATE_SYMBOLS(ctx, data, out) \
     nfa_create_symbol((ctx), (data), sizeof(data) / sizeof((data)[0]), (out))
 
@@ -37,8 +37,7 @@
 
 #define NFA_FRAGMENT(i, f) ((nfa_fragment){ .initial = i, .final = f })
 
-typedef char byte;
-typedef ARRAY(byte) byte_set;
+typedef ARRAY(cbyte) byte_set;
 typedef struct nfa_transition_cond
 {
     enum
@@ -109,8 +108,8 @@ bool nfa_match_entry_eq(nfa_match_entry* a,
 /// @param a Left side of the expression
 /// @param b Right side of the expression
 /// @return If the two bytes are equal
-bool single_byte_eq(byte* a,
-                    byte* b);
+bool single_byte_eq(cbyte* a,
+                    cbyte* b);
 
 /// @brief Initializes the NFA
 /// @param ctx A valid reference to a `nfa` to initialize
@@ -157,7 +156,7 @@ cegex_status nfa_create_empty(nfa* ctx,
 /// @return An status code: `CEGEX_OK` on success
 cegex_status nfa_create_symbol(
     nfa* ctx,
-    byte* bytes,
+    cbyte* bytes,
     size_t n,
     nfa_fragment* out);
 

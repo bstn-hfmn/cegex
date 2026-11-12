@@ -51,7 +51,7 @@ static void test_equality_helpers(void)
     nfa_match_entry x = { .subject_index = 2, .state_id = 7 };
     nfa_match_entry y = { .subject_index = 2, .state_id = 7 };
     nfa_match_entry z = { .subject_index = 3, .state_id = 7 };
-    byte p = 'q', q = 'q', r = 'r';
+    cbyte p = 'q', q = 'q', r = 'r';
 
     EXPECT_TRUE(nfa_state_id_eq(&a, &b));
     EXPECT_TRUE(!nfa_state_id_eq(&a, &c));
@@ -134,7 +134,7 @@ static void test_nfa_cases(void)
     EXPECT_EQ_GOTO(nfa_init(&ctx), CEGEX_OK, fail);
     nfa_fragment abde, de, a, a2, b, c, ab, unioned, repeated, root;
 
-    EXPECT_EQ_GOTO(NFA_CREATE_SYMBOLS(&ctx, ((byte[]){ 'd', 'e' }), &de), CEGEX_OK, fail);
+    EXPECT_EQ_GOTO(NFA_CREATE_SYMBOLS(&ctx, ((cbyte[]){ 'd', 'e' }), &de), CEGEX_OK, fail);
     EXPECT_EQ_GOTO(NFA_CREATE_SYMBOL(&ctx, 'a', &a), CEGEX_OK, fail);
     EXPECT_EQ_GOTO(NFA_CREATE_SYMBOL(&ctx, 'a', &a2), CEGEX_OK, fail);
     EXPECT_EQ_GOTO(NFA_CREATE_SYMBOL(&ctx, 'b', &b), CEGEX_OK, fail);

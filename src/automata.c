@@ -13,8 +13,8 @@ bool nfa_match_entry_eq(nfa_match_entry* a,
     return a->state_id == b->state_id && a->subject_index == b->subject_index;
 }
 
-bool single_byte_eq(byte* a,
-                    byte* b)
+bool single_byte_eq(cbyte* a,
+                    cbyte* b)
 {
     return *a == *b;
 }
@@ -127,7 +127,7 @@ fail:
 
 cegex_status nfa_create_symbol(
     nfa* ctx,
-    byte* bytes,
+    cbyte* bytes,
     size_t n,
     nfa_fragment* out)
 {
@@ -283,7 +283,7 @@ bool nfa_matches(const nfa* const ctx,
                     continue;
 
                 byte_set set = transition->condition.set;
-                byte current = subject[entry.subject_index];
+                cbyte current = (cbyte) subject[entry.subject_index];
                 if(ARRAY_CONTAINS(&set, current, (comparator) single_byte_eq)) {
                     ARRAY_PUSH(&stack, ((nfa_match_entry){
                                            .state_id = transition->to,
