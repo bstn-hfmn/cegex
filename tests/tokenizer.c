@@ -117,12 +117,19 @@ static void test_escape_sequences(void)
     const char* regex = "\\n\\t\\x41\\123";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 12, &tokens), CEGEX_OK);
 
-    EXPECT_EQ(tokens.length, 4);
+    EXPECT_EQ(tokens.length, 9);
 
     EXPECT_TOKEN(tokens, 0, CEGEX_TOKEN_ESCAPE_NEWLINE, 0, 2);
     EXPECT_TOKEN(tokens, 1, CEGEX_TOKEN_ESCAPE_HORIZONTAL_TAB, 2, 2);
-    EXPECT_TOKEN(tokens, 2, CEGEX_TOKEN_ESCAPE_HEX, 4, 4);
-    EXPECT_TOKEN(tokens, 3, CEGEX_TOKEN_ESCAPE_OCTAL, 8, 4);
+
+    EXPECT_TOKEN(tokens, 2, CEGEX_TOKEN_ESCAPE_HEX, 4, 2);
+    EXPECT_TOKEN(tokens, 3, CEGEX_TOKEN_CHARACTER, 6, 1);
+    EXPECT_TOKEN(tokens, 4, CEGEX_TOKEN_CHARACTER, 7, 1);
+
+    EXPECT_TOKEN(tokens, 5, CEGEX_TOKEN_ESCAPE_OCTAL, 8, 1);
+    EXPECT_TOKEN(tokens, 6, CEGEX_TOKEN_CHARACTER, 9, 1);
+    EXPECT_TOKEN(tokens, 7, CEGEX_TOKEN_CHARACTER, 10, 1);
+    EXPECT_TOKEN(tokens, 8, CEGEX_TOKEN_CHARACTER, 11, 1);
 
     cegex_tokenizer_free(&ctx);
 }

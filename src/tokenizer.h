@@ -3,6 +3,15 @@
 
 #include "common.h"
 #include "util/collections.h"
+#include <stdint.h>
+
+#define TOKEN_CHARACTER                       0x01
+#define TOKEN_NUMBER                          0x02
+#define TOKEN_HEX_DIGIT                       0x04
+#define TOKEN_OCT_DIGIT                       0x08
+#define TOKEN_ESC                             0x10
+#define TOKEN_PERL                            0x20
+#define TOKEN_SPECIAL                         0x40
 
 #define CEGEX_TOKENIZER_TOKEN_ARRAYS_CAPACITY 32
 
@@ -10,6 +19,7 @@ typedef enum cegex_token_type
 {
     CEGEX_TOKEN_UNKNOWN = 0,
     CEGEX_TOKEN_CHARACTER,
+
     CEGEX_TOKEN_CLASS_DOT,            // .
     CEGEX_TOKEN_CLASS_WORD,           // \w
     CEGEX_TOKEN_CLASS_NOT_WORD,       // \W
@@ -17,11 +27,12 @@ typedef enum cegex_token_type
     CEGEX_TOKEN_CLASS_NOT_DIGIT,      // \D
     CEGEX_TOKEN_CLASS_WHITESPACE,     // \s
     CEGEX_TOKEN_CLASS_NOT_WHITESPACE, // \S
-    CEGEX_TOKEN_ANCHOR_START,         // ^
-    CEGEX_TOKEN_ANCHOR_END,           // $
-    CEGEX_TOKEN_ANCHOR_BOUNDARY,      // \b
-    CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY,  // \B
-    CEGEX_TOKEN_ESCAPE_CHARACTER,
+
+    CEGEX_TOKEN_ANCHOR_START,        // ^
+    CEGEX_TOKEN_ANCHOR_END,          // $
+    CEGEX_TOKEN_ANCHOR_BOUNDARY,     // \b
+    CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY, // \B
+
     CEGEX_TOKEN_ESCAPE_BELL,            // \a
     CEGEX_TOKEN_ESCAPE_FORM_FEED,       // \f
     CEGEX_TOKEN_ESCAPE_HORIZONTAL_TAB,  // \t
@@ -30,6 +41,7 @@ typedef enum cegex_token_type
     CEGEX_TOKEN_ESCAPE_VERTICAL_TAB,    // \v
     CEGEX_TOKEN_ESCAPE_OCTAL,           // \123 (up to three digits)
     CEGEX_TOKEN_ESCAPE_HEX,             // \x7F (up to two digits)
+
     CEGEX_TOKEN_STAR,
     CEGEX_TOKEN_PLUS,
     CEGEX_TOKEN_MINUS,
@@ -49,6 +61,8 @@ typedef struct cegex_token
 {
     size_t start;
     size_t length;
+
+    uint8_t flags;
     cegex_token_type type;
 } cegex_token;
 

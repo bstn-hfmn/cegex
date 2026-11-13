@@ -100,25 +100,32 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
 
             CEGEX_TRY(ITERATOR_CURRENT(&ctx->iterator, &current));
 
+            token.flags |= TOKEN_ESC;
             switch(current) {
                 // Perl character classes
             case 'w':
                 token.type = CEGEX_TOKEN_CLASS_WORD;
+                token.flags |= TOKEN_PERL;
                 break;
             case 'W':
                 token.type = CEGEX_TOKEN_CLASS_NOT_WORD;
+                token.flags |= TOKEN_PERL;
                 break;
             case 'd':
                 token.type = CEGEX_TOKEN_CLASS_DIGIT;
+                token.flags |= TOKEN_PERL;
                 break;
             case 'D':
                 token.type = CEGEX_TOKEN_CLASS_NOT_DIGIT;
+                token.flags |= TOKEN_PERL;
                 break;
             case 's':
                 token.type = CEGEX_TOKEN_CLASS_WHITESPACE;
+                token.flags |= TOKEN_PERL;
                 break;
             case 'S':
                 token.type = CEGEX_TOKEN_CLASS_NOT_WHITESPACE;
+                token.flags |= TOKEN_PERL;
                 break;
 
                 // Anchors
@@ -129,7 +136,7 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                 token.type = CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY;
                 break;
 
-                // Supported special escape sequences
+                // Supported escape sequences
             case 'a':
                 token.type = CEGEX_TOKEN_ESCAPE_BELL;
                 break;
@@ -152,17 +159,34 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
             default: {
                 if(cegex_isodigit(current)) {
                     token.type = CEGEX_TOKEN_ESCAPE_OCTAL;
-                    cegex_tokenizer_consume_digits(ctx, cegex_isodigit, 2);
+                    ctx->iterator.index -= 1;
                 } else if(current == 'x') {
                     token.type = CEGEX_TOKEN_ESCAPE_HEX;
-                    cegex_tokenizer_consume_digits(ctx, isxdigit, 2);
                 } else {
-                    token.type = CEGEX_TOKEN_ESCAPE_CHARACTER;
+                    status = CEGEX_ERR_SYNTAX;
+                    goto fail;
                 }
             } break;
             }
         } else {
             token.type = cegex_token_type_from_char(current);
+            token.flags |= TOKEN_CHARACTER;
+
+            if(CEGEX_TOKEN_CHARACTER != token.type) {
+                token.flags |= TOKEN_SPECIAL;
+            }
+
+            if(isdigit(current)) {
+                token.flags |= TOKEN_NUMBER;
+            }
+
+            if(isxdigit(current)) {
+                token.flags |= TOKEN_HEX_DIGIT;
+            }
+
+            if(cegex_isodigit(current)) {
+                token.flags |= TOKEN_OCT_DIGIT;
+            }
         }
 
         ITERATOR_NEXT(&ctx->iterator);
