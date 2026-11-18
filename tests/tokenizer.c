@@ -10,10 +10,8 @@
 
 static void test_basic_regex(void)
 {
-    cegex_tokenizer ctx;
+    cegex_tokenizer ctx = { 0 };
     cegex_token_array tokens;
-
-    cegex_tokenizer_init(&ctx);
 
     const char* regex = "^abc.*$";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 7, &tokens), CEGEX_OK);
@@ -33,10 +31,8 @@ static void test_basic_regex(void)
 
 static void test_character_classes(void)
 {
-    cegex_tokenizer ctx;
+    cegex_tokenizer ctx = { 0 };
     cegex_token_array tokens;
-
-    cegex_tokenizer_init(&ctx);
 
     const char* regex = "\\d\\D\\w\\W\\s\\S";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 12, &tokens), CEGEX_OK);
@@ -55,10 +51,8 @@ static void test_character_classes(void)
 
 static void test_groups_alternation_and_quantifiers(void)
 {
-    cegex_tokenizer ctx;
+    cegex_tokenizer ctx = { 0 };
     cegex_token_array tokens;
-
-    cegex_tokenizer_init(&ctx);
 
     const char* regex = "(rat|bat)+?";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 11, &tokens), CEGEX_OK);
@@ -82,10 +76,8 @@ static void test_groups_alternation_and_quantifiers(void)
 
 static void test_bracket_expression(void)
 {
-    cegex_tokenizer ctx;
+    cegex_tokenizer ctx = { 0 };
     cegex_token_array tokens;
-
-    cegex_tokenizer_init(&ctx);
 
     const char* regex = "[a-zA-Z0-9]";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 11, &tokens), CEGEX_OK);
@@ -109,10 +101,8 @@ static void test_bracket_expression(void)
 
 static void test_escape_sequences(void)
 {
-    cegex_tokenizer ctx;
+    cegex_tokenizer ctx = { 0 };
     cegex_token_array tokens;
-
-    cegex_tokenizer_init(&ctx);
 
     const char* regex = "\\n\\t\\x41\\123";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 12, &tokens), CEGEX_OK);
@@ -136,9 +126,8 @@ static void test_escape_sequences(void)
 
 static void test_dangling_backslash(void)
 {
-    cegex_tokenizer ctx;
+    cegex_tokenizer ctx = { 0 };
     cegex_token_array tokens;
-    cegex_tokenizer_init(&ctx);
 
     const char* regex = "abc\\";
     EXPECT_EQ(cegex_tokenizer_exec(&ctx, regex, 4, &tokens), CEGEX_ERR_SYNTAX);

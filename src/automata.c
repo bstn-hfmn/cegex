@@ -13,8 +13,8 @@ bool nfa_match_entry_eq(nfa_match_entry* a,
     return a->state_id == b->state_id && a->subject_index == b->subject_index;
 }
 
-bool single_byte_eq(cbyte* a,
-                    cbyte* b)
+bool uchar_eq(uchar* a,
+              uchar* b)
 {
     return *a == *b;
 }
@@ -127,7 +127,7 @@ fail:
 
 cegex_status nfa_create_symbol(
     nfa* ctx,
-    cbyte* bytes,
+    uchar* characters,
     size_t n,
     nfa_fragment* out)
 {
@@ -142,7 +142,7 @@ cegex_status nfa_create_symbol(
     cond.type = NFA_TRANSITION_COND_SET;
     ARRAY_INIT(&cond.set);
     for(size_t i = 0; i < n; i++) {
-        ARRAY_PUSH(&cond.set, bytes[i]);
+        ARRAY_PUSH(&cond.set, characters[i]);
     }
 
     CEGEX_TRY(nfa_create_transition(ctx, q0, qF, cond, NULL));
@@ -282,9 +282,9 @@ bool nfa_matches(const nfa* const ctx,
                 if(entry.subject_index >= n)
                     continue;
 
-                byte_set set = transition->condition.set;
-                cbyte current = (cbyte) subject[entry.subject_index];
-                if(ARRAY_CONTAINS(&set, current, (comparator) single_byte_eq)) {
+                char_set set = transition->condition.set;
+                uchar current = (uchar) subject[entry.subject_index];
+                if(ARRAY_CONTAINS(&set, current, (comparator) uchar_eq)) {
                     ARRAY_PUSH(&stack, ((nfa_match_entry){
                                            .state_id = transition->to,
                                            .subject_index = entry.subject_index + 1 }));

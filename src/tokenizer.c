@@ -42,14 +42,6 @@ cegex_token_type cegex_token_type_from_char(char needle)
     }
 }
 
-cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx)
-{
-    assert(ctx != NULL);
-    ctx->token_arrays_length = 0;
-
-    return CEGEX_OK;
-}
-
 static int cegex_isodigit(int c)
 {
     return c >= '0' && c <= '7';
@@ -163,15 +155,12 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                 } else if(current == 'x') {
                     token.type = CEGEX_TOKEN_ESCAPE_HEX;
                 } else {
-                    status = CEGEX_ERR_SYNTAX;
-                    goto fail;
+                    token.type = CEGEX_TOKEN_CHARACTER;
                 }
             } break;
             }
         } else {
             token.type = cegex_token_type_from_char(current);
-            token.flags |= TOKEN_CHARACTER;
-
             if(CEGEX_TOKEN_CHARACTER != token.type) {
                 token.flags |= TOKEN_SPECIAL;
             }

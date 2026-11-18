@@ -8,7 +8,7 @@
             goto fail;         \
     } while(0)
 
-typedef unsigned char cbyte;
+typedef unsigned char uchar;
 
 typedef enum cegex_status
 {

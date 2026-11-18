@@ -5,7 +5,6 @@
 #include "util/collections.h"
 #include <stdint.h>
 
-#define TOKEN_CHARACTER                       0x01
 #define TOKEN_NUMBER                          0x02
 #define TOKEN_HEX_DIGIT                       0x04
 #define TOKEN_OCT_DIGIT                       0x08
@@ -57,21 +56,22 @@ typedef enum cegex_token_type
     CEGEX_TOKEN_COMMA
 } cegex_token_type;
 
+typedef uint8_t cegex_token_flags;
 typedef struct cegex_token
 {
     size_t start;
     size_t length;
 
-    uint8_t flags;
+    cegex_token_flags flags;
     cegex_token_type type;
 } cegex_token;
 
 typedef ARRAY(cegex_token) cegex_token_array;
-typedef ITERATOR(cbyte) byte_iterator;
+typedef ITERATOR(uchar) uchar_iterator;
 
 typedef struct cegex_tokenizer
 {
-    byte_iterator iterator;
+    uchar_iterator iterator;
 
     size_t token_arrays_length;
     cegex_token_array token_arrays[CEGEX_TOKENIZER_TOKEN_ARRAYS_CAPACITY];
@@ -79,6 +79,13 @@ typedef struct cegex_tokenizer
 
 cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx);
 
+/// @attention The resulting `out` array is only valid for as long as the tokenizer is alive (shared lifteime)
+/// @brief Tokenizes the given string
+/// @param ctx Pointer to the tokenizer context containing the token
+/// @param source String to tokenize
+/// @param n Length of the input string
+/// @param out Output-parameter for the resulting array of tokens
+/// @return `CEGEX_OK` on success
 cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                                   const char* source,
                                   size_t n,

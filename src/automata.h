@@ -8,7 +8,7 @@
 #define NFA_STATE_MAX_TRANSITIONS      2
 #define NFA_TRANSITION_SET_MAX_SYMBOLS 64
 
-#define NFA_CREATE_SYMBOL(n, c, o)     nfa_create_symbol(n, ((cbyte[1]){ c }), 1, o)
+#define NFA_CREATE_SYMBOL(n, c, o)     nfa_create_symbol(n, ((uchar[1]){ c }), 1, o)
 #define NFA_CREATE_SYMBOLS(ctx, data, out) \
     nfa_create_symbol((ctx), (data), sizeof(data) / sizeof((data)[0]), (out))
 
@@ -37,7 +37,7 @@
 
 #define NFA_FRAGMENT(i, f) ((nfa_fragment){ .initial = i, .final = f })
 
-typedef ARRAY(cbyte) byte_set;
+typedef ARRAY(uchar) char_set;
 typedef struct nfa_transition_cond
 {
     enum
@@ -46,7 +46,7 @@ typedef struct nfa_transition_cond
         NFA_TRANSITION_COND_SET
     } type;
 
-    byte_set set;
+    char_set set;
 } nfa_transition_cond;
 
 typedef size_t nfa_state_id;
@@ -107,9 +107,9 @@ bool nfa_match_entry_eq(nfa_match_entry* a,
 /// @brief Checks if `a` is equal to `b` (`a == b`)
 /// @param a Left side of the expression
 /// @param b Right side of the expression
-/// @return If the two bytes are equal
-bool single_byte_eq(cbyte* a,
-                    cbyte* b);
+/// @return If the two unsigned characters are equal
+bool uchar_eq(uchar* a,
+              uchar* b);
 
 /// @brief Initializes the NFA
 /// @param ctx A valid reference to a `nfa` to initialize
@@ -151,12 +151,12 @@ cegex_status nfa_create_empty(nfa* ctx,
 
 /// @brief Builds two states with a transition and a given set of bytes as the transition condition (expands the alphabet of the NFA)
 /// @param ctx Pointer to the NFA context containing the states
-/// @param bytes The set of bytes, used as transition condition
+/// @param characters The set of characters, used as transition condition
 /// @param out The output fragment
 /// @return An status code: `CEGEX_OK` on success
 cegex_status nfa_create_symbol(
     nfa* ctx,
-    cbyte* bytes,
+    uchar* characters,
     size_t n,
     nfa_fragment* out);
 

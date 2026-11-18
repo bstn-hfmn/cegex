@@ -89,7 +89,7 @@ void cegex_nfa_digraph_str(nfa* ctx,
 
                 label[label_length++] = '{';
                 for(size_t j = 0; j < transition->condition.set.length; j++) {
-                    cbyte symbol = transition->condition.set.elements[j];
+                    uchar symbol = transition->condition.set.elements[j];
                     label[label_length++] = (char) symbol;
 
                     if(j + 1 != transition->condition.set.length)
