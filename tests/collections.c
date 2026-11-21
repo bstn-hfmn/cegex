@@ -204,7 +204,7 @@ static void test_iterator_peek_curr(void)
     EXPECT_EQ(el.index, 2);
 
     EXPECT_EQ(ITERATOR_NEXT(&it), CEGEX_ERR_LIMIT);
-    EXPECT_EQ(ITERATOR_CURRENT(&it, &el), CEGEX_OK);
+    EXPECT_EQ(ITERATOR_CURRENT(&it, &el), CEGEX_ERR_LIMIT);
     EXPECT_EQ(el.index, 2);
 }
 

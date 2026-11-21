@@ -98,15 +98,17 @@ cegex_status iterator_current(void** elements,
 {
     assert(elements != NULL);
 
+    cegex_status status = CEGEX_OK;
     if(index >= length) {
         index = length - 1;
+        status = CEGEX_ERR_LIMIT;
     }
 
     if(out != NULL) {
         memcpy((char*) out, (char*) *elements + index * stride, stride);
     }
 
-    return CEGEX_OK;
+    return status;
 }
 
 cegex_status array_init(void** elements,
