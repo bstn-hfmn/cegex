@@ -51,14 +51,14 @@ static void test_equality_helpers(void)
     nfa_match_entry x = { .subject_index = 2, .state_id = 7 };
     nfa_match_entry y = { .subject_index = 2, .state_id = 7 };
     nfa_match_entry z = { .subject_index = 3, .state_id = 7 };
-    uchar p = 'q', q = 'q', r = 'r';
+    cegex_uchar p = 'q', q = 'q', r = 'r';
 
     EXPECT_TRUE(nfa_state_id_eq(&a, &b));
     EXPECT_TRUE(!nfa_state_id_eq(&a, &c));
     EXPECT_TRUE(nfa_match_entry_eq(&x, &y));
     EXPECT_TRUE(!nfa_match_entry_eq(&x, &z));
-    EXPECT_TRUE(uchar_eq(&p, &q));
-    EXPECT_TRUE(!uchar_eq(&p, &r));
+    EXPECT_TRUE(cegex_uchar_eq(&p, &q));
+    EXPECT_TRUE(!cegex_uchar_eq(&p, &r));
 }
 
 static void test_init_and_state_creation(void)
@@ -134,7 +134,7 @@ static void test_nfa_cases(void)
     EXPECT_EQ_GOTO(nfa_init(&ctx), CEGEX_OK, fail);
     nfa_fragment abde, de, a, a2, b, c, ab, unioned, repeated, root;
 
-    EXPECT_EQ_GOTO(NFA_CREATE_SYMBOLS(&ctx, ((uchar[]){ 'd', 'e' }), &de), CEGEX_OK, fail);
+    EXPECT_EQ_GOTO(NFA_CREATE_SYMBOLS(&ctx, ((cegex_uchar[]){ 'd', 'e' }), &de), CEGEX_OK, fail);
     EXPECT_EQ_GOTO(NFA_CREATE_SYMBOL(&ctx, 'a', &a), CEGEX_OK, fail);
     EXPECT_EQ_GOTO(NFA_CREATE_SYMBOL(&ctx, 'a', &a2), CEGEX_OK, fail);
     EXPECT_EQ_GOTO(NFA_CREATE_SYMBOL(&ctx, 'b', &b), CEGEX_OK, fail);

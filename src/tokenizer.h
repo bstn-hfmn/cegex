@@ -5,14 +5,12 @@
 #include "util/collections.h"
 #include <stdint.h>
 
-#define TOKEN_NUMBER                          0x02
-#define TOKEN_HEX_DIGIT                       0x04
-#define TOKEN_OCT_DIGIT                       0x08
-#define TOKEN_ESC                             0x10
-#define TOKEN_PERL                            0x20
-#define TOKEN_SPECIAL                         0x40
-
-#define CEGEX_TOKENIZER_TOKEN_ARRAYS_CAPACITY 32
+#define TOKEN_NUMBER    0x02
+#define TOKEN_HEX_DIGIT 0x04
+#define TOKEN_OCT_DIGIT 0x08
+#define TOKEN_ESC       0x10
+#define TOKEN_PERL      0x20
+#define TOKEN_SPECIAL   0x40
 
 typedef enum cegex_token_type
 {
@@ -27,8 +25,6 @@ typedef enum cegex_token_type
     CEGEX_TOKEN_CLASS_WHITESPACE,     // \s
     CEGEX_TOKEN_CLASS_NOT_WHITESPACE, // \S
 
-    CEGEX_TOKEN_ANCHOR_START,        // ^
-    CEGEX_TOKEN_ANCHOR_END,          // $
     CEGEX_TOKEN_ANCHOR_BOUNDARY,     // \b
     CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY, // \B
 
@@ -41,6 +37,8 @@ typedef enum cegex_token_type
     CEGEX_TOKEN_ESCAPE_OCTAL,           // \123 (up to three digits)
     CEGEX_TOKEN_ESCAPE_HEX,             // \x7F (up to two digits)
 
+    CEGEX_TOKEN_HAT,
+    CEGEX_TOKEN_DOLLAR,
     CEGEX_TOKEN_STAR,
     CEGEX_TOKEN_PLUS,
     CEGEX_TOKEN_MINUS,
@@ -67,14 +65,18 @@ typedef struct cegex_token
 } cegex_token;
 
 typedef ARRAY(cegex_token) cegex_token_array;
-typedef ITERATOR(uchar) uchar_iterator;
+typedef ITERATOR(cegex_uchar) uchar_iterator;
+
+typedef struct cegex_tokenized_expr
+{
+    cegex_uchar* source;
+    cegex_token_array tokens;
+} cegex_tokenized_expr;
 
 typedef struct cegex_tokenizer
 {
-    uchar_iterator iterator;
-
-    size_t token_arrays_length;
-    cegex_token_array token_arrays[CEGEX_TOKENIZER_TOKEN_ARRAYS_CAPACITY];
+    size_t num_tokenized;
+    cegex_tokenized_expr tokenized[CEGEX_EXPRESSION_CAPACITY];
 } cegex_tokenizer;
 
 cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx);
@@ -88,8 +90,8 @@ cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx);
 /// @return `CEGEX_OK` on success
 cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                                   const char* source,
-                                  size_t n,
-                                  cegex_token_array* out);
+                                  size_t length,
+                                  cegex_tokenized_expr* out);
 
 void cegex_tokenizer_free(cegex_tokenizer* ctx);
 

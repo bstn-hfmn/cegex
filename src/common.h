@@ -1,6 +1,8 @@
 #ifndef CEGEX_COMMON_H
 #define CEGEX_COMMON_H
 
+#define CEGEX_EXPRESSION_CAPACITY 32
+
 #define CEGEX_TRY(expr)        \
     do {                       \
         status = (expr);       \
@@ -8,7 +10,7 @@
             goto fail;         \
     } while(0)
 
-typedef unsigned char uchar;
+typedef unsigned char cegex_uchar;
 
 typedef enum cegex_status
 {

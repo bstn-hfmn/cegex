@@ -13,8 +13,8 @@ bool nfa_match_entry_eq(nfa_match_entry* a,
     return a->state_id == b->state_id && a->subject_index == b->subject_index;
 }
 
-bool uchar_eq(uchar* a,
-              uchar* b)
+bool cegex_uchar_eq(cegex_uchar* a,
+                    cegex_uchar* b)
 {
     return *a == *b;
 }
@@ -127,7 +127,7 @@ fail:
 
 cegex_status nfa_create_symbol(
     nfa* ctx,
-    uchar* characters,
+    cegex_uchar* characters,
     size_t n,
     nfa_fragment* out)
 {
@@ -283,8 +283,8 @@ bool nfa_matches(const nfa* const ctx,
                     continue;
 
                 char_set set = transition->condition.set;
-                uchar current = (uchar) subject[entry.subject_index];
-                if(ARRAY_CONTAINS(&set, current, (comparator) uchar_eq)) {
+                cegex_uchar current = (cegex_uchar) subject[entry.subject_index];
+                if(ARRAY_CONTAINS(&set, current, (comparator) cegex_uchar_eq)) {
                     ARRAY_PUSH(&stack, ((nfa_match_entry){
                                            .state_id = transition->to,
                                            .subject_index = entry.subject_index + 1 }));

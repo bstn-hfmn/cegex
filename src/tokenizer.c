@@ -1,6 +1,8 @@
 #include "tokenizer.h"
 #include <assert.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 cegex_token_type cegex_token_type_from_char(char needle)
 {
@@ -8,9 +10,9 @@ cegex_token_type cegex_token_type_from_char(char needle)
     case '.':
         return CEGEX_TOKEN_CLASS_DOT;
     case '^':
-        return CEGEX_TOKEN_ANCHOR_START;
+        return CEGEX_TOKEN_HAT;
     case '$':
-        return CEGEX_TOKEN_ANCHOR_END;
+        return CEGEX_TOKEN_DOLLAR;
     case '*':
         return CEGEX_TOKEN_STAR;
     case '+':
@@ -47,26 +49,13 @@ static int cegex_isodigit(int c)
     return c >= '0' && c <= '7';
 }
 
-void cegex_tokenizer_consume_digits(cegex_tokenizer* ctx,
-                                    int (*pred)(int),
-                                    size_t len)
-{
-    char peeked;
-    for(size_t i = 0; i < len; i++) {
-        if((CEGEX_OK != ITERATOR_PEEK(&ctx->iterator, &peeked)) || !pred((unsigned char) peeked))
-            break;
-
-        ITERATOR_NEXT(&ctx->iterator);
-    }
-}
-
 cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                                   const char* source,
-                                  size_t n,
-                                  cegex_token_array* out)
+                                  size_t length,
+                                  cegex_tokenized_expr* out)
 {
     assert(ctx != NULL);
-    if(ctx->token_arrays_length >= CEGEX_TOKENIZER_TOKEN_ARRAYS_CAPACITY) {
+    if(ctx->num_tokenized >= CEGEX_EXPRESSION_CAPACITY) {
         return CEGEX_ERR_LIMIT;
     }
 
@@ -74,23 +63,25 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
     cegex_token_array array = { 0 };
 
     CEGEX_TRY(ARRAY_INIT(&array));
-    ITERATOR_INIT(&ctx->iterator, source, n);
 
-    while(!ITERATOR_EMPTY(&ctx->iterator)) {
+    uchar_iterator iterator;
+    ITERATOR_INIT(&iterator, source, length);
+
+    while(!ITERATOR_EMPTY(&iterator)) {
         char current;
-        CEGEX_TRY(ITERATOR_CURRENT(&ctx->iterator, &current));
+        CEGEX_TRY(ITERATOR_CURRENT(&iterator, &current));
 
         cegex_token token = { 0 };
-        token.start = ctx->iterator.index;
+        token.start = iterator.index;
 
         if(current == '\\') {
             // Escape sequence or perl character class
-            if(CEGEX_OK != ITERATOR_NEXT(&ctx->iterator)) {
+            if(CEGEX_OK != ITERATOR_NEXT(&iterator)) {
                 status = CEGEX_ERR_SYNTAX;
                 goto fail;
             }
 
-            CEGEX_TRY(ITERATOR_CURRENT(&ctx->iterator, &current));
+            CEGEX_TRY(ITERATOR_CURRENT(&iterator, &current));
 
             token.flags |= TOKEN_ESC;
             switch(current) {
@@ -151,7 +142,7 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
             default: {
                 if(cegex_isodigit(current)) {
                     token.type = CEGEX_TOKEN_ESCAPE_OCTAL;
-                    ctx->iterator.index -= 1;
+                    iterator.index -= 1;
                 } else if(current == 'x') {
                     token.type = CEGEX_TOKEN_ESCAPE_HEX;
                 } else {
@@ -178,17 +169,22 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
             }
         }
 
-        ITERATOR_NEXT(&ctx->iterator);
+        ITERATOR_NEXT(&iterator);
 
-        token.length = ctx->iterator.index - token.start;
+        token.length = iterator.index - token.start;
         CEGEX_TRY(ARRAY_PUSH(&array, token));
     }
 
-    ctx->token_arrays[ctx->token_arrays_length++] = array;
+    ctx->tokenized[ctx->num_tokenized].source = malloc(sizeof(char) * length + 1);
+    memcpy(ctx->tokenized[ctx->num_tokenized].source, source, length);
+    ctx->tokenized[ctx->num_tokenized].source[length] = '\0';
+    ctx->tokenized[ctx->num_tokenized].tokens = array;
 
-    if(out != NULL)
-        *out = ctx->token_arrays[ctx->token_arrays_length - 1];
+    if(out != NULL) {
+        *out = ctx->tokenized[ctx->num_tokenized];
+    }
 
+    ctx->num_tokenized += 1;
     return CEGEX_OK;
 
 fail:
@@ -200,7 +196,8 @@ void cegex_tokenizer_free(cegex_tokenizer* ctx)
 {
     assert(ctx != NULL);
 
-    for(size_t i = 0; i < ctx->token_arrays_length; i++) {
-        ARRAY_FREE(&ctx->token_arrays[i]);
+    for(size_t i = 0; i < ctx->num_tokenized; i++) {
+        ARRAY_FREE(&ctx->tokenized->tokens);
+        free(ctx->tokenized->source);
     }
 }

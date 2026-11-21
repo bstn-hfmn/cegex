@@ -18,8 +18,8 @@ static cegex_token_text token_texts[] = {
     { CEGEX_TOKEN_CLASS_NOT_DIGIT, "CEGEX_TOKEN_CLASS_NOT_DIGIT" },
     { CEGEX_TOKEN_CLASS_WHITESPACE, "CEGEX_TOKEN_CLASS_WHITESPACE" },
     { CEGEX_TOKEN_CLASS_NOT_WHITESPACE, "CEGEX_TOKEN_CLASS_NOT_WHITESPACE" },
-    { CEGEX_TOKEN_ANCHOR_START, "CEGEX_TOKEN_ANCHOR_START" },
-    { CEGEX_TOKEN_ANCHOR_END, "CEGEX_TOKEN_ANCHOR_END" },
+    { CEGEX_TOKEN_HAT, "CEGEX_TOKEN_HAT" },
+    { CEGEX_TOKEN_DOLLAR, "CEGEX_TOKEN_DOLLAR" },
     { CEGEX_TOKEN_ANCHOR_BOUNDARY, "CEGEX_TOKEN_ANCHOR_BOUNDARY" },
     { CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY, "CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY" },
     { CEGEX_TOKEN_ESCAPE_BELL, "CEGEX_TOKEN_ESCAPE_BELL" },
@@ -89,7 +89,7 @@ void cegex_nfa_digraph_str(nfa* ctx,
 
                 label[label_length++] = '{';
                 for(size_t j = 0; j < transition->condition.set.length; j++) {
-                    uchar symbol = transition->condition.set.elements[j];
+                    cegex_uchar symbol = transition->condition.set.elements[j];
                     label[label_length++] = (char) symbol;
 
                     if(j + 1 != transition->condition.set.length)
