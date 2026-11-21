@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10.0)
 project(cegex VERSION 0.1.0 LANGUAGES C)
 
 option(CEGEX_BUILD_TESTS "Build and run the cegex tests" OFF)
-set(CEGEX_BUILD_TESTS ON)
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 
 function(cegex_configure_target target)
     set_target_properties(${target} PROPERTIES
@@ -20,6 +20,29 @@ function(cegex_configure_target target)
             -Werror=c23-extensions
         >
     )
+
+    if(ENABLE_ASAN)
+        if(MSVC)
+            target_compile_options(${target} PRIVATE
+                /fsanitize=address
+                /Zi
+            )
+        elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+            target_compile_options(${target} PRIVATE
+                -fsanitize=address
+                -fno-omit-frame-pointer
+                -g
+            )
+
+            target_link_options(${target} PRIVATE
+                -fsanitize=address
+            )
+        else()
+            message(FATAL_ERROR
+                "AddressSanitizer is not supported by this compiler configuration."
+            )
+        endif()
+    endif()
 endfunction()
 
 set(CEGEX_UTIL_SOURCES
