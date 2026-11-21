@@ -51,6 +51,18 @@ void iterator_init(void** elements,
     *index = 0;
 }
 
+void iterator_save(size_t index,
+                   size_t* saved)
+{
+    *saved = index;
+}
+
+void iterator_restore(size_t* index,
+                      size_t saved)
+{
+    *index = saved;
+}
+
 bool iterator_empty(size_t index,
                     size_t length)
 {

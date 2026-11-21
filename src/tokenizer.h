@@ -5,12 +5,13 @@
 #include "util/collections.h"
 #include <stdint.h>
 
-#define TOKEN_NUMBER    0x02
-#define TOKEN_HEX_DIGIT 0x04
-#define TOKEN_OCT_DIGIT 0x08
-#define TOKEN_ESC       0x10
-#define TOKEN_PERL      0x20
-#define TOKEN_SPECIAL   0x40
+#define TOKEN_WHITESPACE 0x01
+#define TOKEN_NUMBER     0x02
+#define TOKEN_HEX_DIGIT  0x04
+#define TOKEN_OCT_DIGIT  0x08
+#define TOKEN_ESC        0x10
+#define TOKEN_PERL       0x20
+#define TOKEN_SPECIAL    0x40
 
 typedef enum cegex_token_type
 {

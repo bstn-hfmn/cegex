@@ -156,6 +156,10 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                 token.flags |= TOKEN_SPECIAL;
             }
 
+            if(current == ' ') {
+                token.flags |= TOKEN_WHITESPACE;
+            }
+
             if(isdigit(current)) {
                 token.flags |= TOKEN_NUMBER;
             }
