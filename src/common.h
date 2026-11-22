@@ -15,6 +15,7 @@ typedef unsigned char cegex_uchar;
 typedef enum cegex_status
 {
     CEGEX_OK = 0,
+    CEGEX_ERR_UNEXPECTED,
     CEGEX_ERR_INVALID_ARGUMENT,
     CEGEX_ERR_MEMORY,
     CEGEX_ERR_SYNTAX,

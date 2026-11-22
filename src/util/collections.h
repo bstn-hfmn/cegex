@@ -30,9 +30,6 @@
 #define ITERATOR_NEXT(it)               iterator_next(&(it)->index, (it)->length)
 #define ITERATOR_CURRENT(it, out)       iterator_current((void**) &(it)->elements, (it)->index, (it)->length, sizeof(*(it)->elements), (void*) (out))
 
-#define ITERATOR_SAVE(it)               iterator_save((it)->index, &(it)->saved)
-#define ITERATOR_RESTORE(it)            iterator_restore(&(it)->index, (it)->saved)
-
 #define ARRAY_INIT(arr)                 array_init((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity, sizeof(*(arr)->elements))
 #define ARRAY_FREE(arr)                 array_free((void**) &(arr)->elements, &(arr)->length, &(arr)->capacity)
 
@@ -58,12 +55,6 @@ void iterator_init(void** elements,
                    size_t* length,
                    size_t capcity,
                    void* source);
-
-void iterator_save(size_t index,
-                   size_t* saved);
-
-void iterator_restore(size_t* index,
-                      size_t saved);
 
 /// @brief Checks whether the iterator is empty
 /// @param index The current index of the iterator
