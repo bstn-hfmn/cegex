@@ -19,9 +19,9 @@ static void test_basic_regex(void)
     EXPECT_EQ(tokenized.tokens.length, 7);
 
     EXPECT_TOKEN(tokenized.tokens, 0, CEGEX_TOKEN_HAT, 0, 1);
-    EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_CHARACTER, 1, 1);
-    EXPECT_TOKEN(tokenized.tokens, 2, CEGEX_TOKEN_CHARACTER, 2, 1);
-    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARACTER, 3, 1);
+    EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_CHARCODE, 1, 1);
+    EXPECT_TOKEN(tokenized.tokens, 2, CEGEX_TOKEN_CHARCODE, 2, 1);
+    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARCODE, 3, 1);
     EXPECT_TOKEN(tokenized.tokens, 4, CEGEX_TOKEN_CLASS_DOT, 4, 1);
     EXPECT_TOKEN(tokenized.tokens, 5, CEGEX_TOKEN_STAR, 5, 1);
     EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_DOLLAR, 6, 1);
@@ -60,13 +60,13 @@ static void test_groups_alternation_and_quantifiers(void)
     EXPECT_EQ(tokenized.tokens.length, 11);
 
     EXPECT_TOKEN(tokenized.tokens, 0, CEGEX_TOKEN_PAREN_OPEN, 0, 1);
-    EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_CHARACTER, 1, 1);
-    EXPECT_TOKEN(tokenized.tokens, 2, CEGEX_TOKEN_CHARACTER, 2, 1);
-    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARACTER, 3, 1);
+    EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_CHARCODE, 1, 1);
+    EXPECT_TOKEN(tokenized.tokens, 2, CEGEX_TOKEN_CHARCODE, 2, 1);
+    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARCODE, 3, 1);
     EXPECT_TOKEN(tokenized.tokens, 4, CEGEX_TOKEN_ALTERNATE, 4, 1);
-    EXPECT_TOKEN(tokenized.tokens, 5, CEGEX_TOKEN_CHARACTER, 5, 1);
-    EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_CHARACTER, 6, 1);
-    EXPECT_TOKEN(tokenized.tokens, 7, CEGEX_TOKEN_CHARACTER, 7, 1);
+    EXPECT_TOKEN(tokenized.tokens, 5, CEGEX_TOKEN_CHARCODE, 5, 1);
+    EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_CHARCODE, 6, 1);
+    EXPECT_TOKEN(tokenized.tokens, 7, CEGEX_TOKEN_CHARCODE, 7, 1);
     EXPECT_TOKEN(tokenized.tokens, 8, CEGEX_TOKEN_PAREN_CLOSE, 8, 1);
     EXPECT_TOKEN(tokenized.tokens, 9, CEGEX_TOKEN_PLUS, 9, 1);
     EXPECT_TOKEN(tokenized.tokens, 10, CEGEX_TOKEN_QUESTION_MARK, 10, 1);
@@ -85,15 +85,15 @@ static void test_bracket_expression(void)
     EXPECT_EQ(tokenized.tokens.length, 11);
 
     EXPECT_TOKEN(tokenized.tokens, 0, CEGEX_TOKEN_SQUARE_OPEN, 0, 1);
-    EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_CHARACTER, 1, 1);
+    EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_CHARCODE, 1, 1);
     EXPECT_TOKEN(tokenized.tokens, 2, CEGEX_TOKEN_MINUS, 2, 1);
-    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARACTER, 3, 1);
-    EXPECT_TOKEN(tokenized.tokens, 4, CEGEX_TOKEN_CHARACTER, 4, 1);
+    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARCODE, 3, 1);
+    EXPECT_TOKEN(tokenized.tokens, 4, CEGEX_TOKEN_CHARCODE, 4, 1);
     EXPECT_TOKEN(tokenized.tokens, 5, CEGEX_TOKEN_MINUS, 5, 1);
-    EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_CHARACTER, 6, 1);
-    EXPECT_TOKEN(tokenized.tokens, 7, CEGEX_TOKEN_CHARACTER, 7, 1);
+    EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_CHARCODE, 6, 1);
+    EXPECT_TOKEN(tokenized.tokens, 7, CEGEX_TOKEN_CHARCODE, 7, 1);
     EXPECT_TOKEN(tokenized.tokens, 8, CEGEX_TOKEN_MINUS, 8, 1);
-    EXPECT_TOKEN(tokenized.tokens, 9, CEGEX_TOKEN_CHARACTER, 9, 1);
+    EXPECT_TOKEN(tokenized.tokens, 9, CEGEX_TOKEN_CHARCODE, 9, 1);
     EXPECT_TOKEN(tokenized.tokens, 10, CEGEX_TOKEN_SQUARE_CLOSE, 10, 1);
 
     cegex_tokenizer_free(&ctx);
@@ -113,13 +113,13 @@ static void test_escape_sequences(void)
     EXPECT_TOKEN(tokenized.tokens, 1, CEGEX_TOKEN_ESCAPE_HORIZONTAL_TAB, 2, 2);
 
     EXPECT_TOKEN(tokenized.tokens, 2, CEGEX_TOKEN_ESCAPE_HEX, 4, 2);
-    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARACTER, 6, 1);
-    EXPECT_TOKEN(tokenized.tokens, 4, CEGEX_TOKEN_CHARACTER, 7, 1);
+    EXPECT_TOKEN(tokenized.tokens, 3, CEGEX_TOKEN_CHARCODE, 6, 1);
+    EXPECT_TOKEN(tokenized.tokens, 4, CEGEX_TOKEN_CHARCODE, 7, 1);
 
     EXPECT_TOKEN(tokenized.tokens, 5, CEGEX_TOKEN_ESCAPE_OCTAL, 8, 1);
-    EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_CHARACTER, 9, 1);
-    EXPECT_TOKEN(tokenized.tokens, 7, CEGEX_TOKEN_CHARACTER, 10, 1);
-    EXPECT_TOKEN(tokenized.tokens, 8, CEGEX_TOKEN_CHARACTER, 11, 1);
+    EXPECT_TOKEN(tokenized.tokens, 6, CEGEX_TOKEN_CHARCODE, 9, 1);
+    EXPECT_TOKEN(tokenized.tokens, 7, CEGEX_TOKEN_CHARCODE, 10, 1);
+    EXPECT_TOKEN(tokenized.tokens, 8, CEGEX_TOKEN_CHARCODE, 11, 1);
 
     cegex_tokenizer_free(&ctx);
 }

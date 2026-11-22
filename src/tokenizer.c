@@ -40,7 +40,7 @@ cegex_token_type cegex_token_type_from_char(char needle)
     case '-':
         return CEGEX_TOKEN_MINUS;
     default:
-        return CEGEX_TOKEN_CHARACTER;
+        return CEGEX_TOKEN_CHARCODE;
     }
 }
 
@@ -83,32 +83,32 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
 
             CEGEX_TRY(ITERATOR_CURRENT(&iterator, &current));
 
-            token.flags |= TOKEN_ESC;
+            token.flags |= CEGEX_TOKEN_FLG_ESC;
             switch(current) {
                 // Perl character classes
             case 'w':
                 token.type = CEGEX_TOKEN_CLASS_WORD;
-                token.flags |= TOKEN_PERL;
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
                 break;
             case 'W':
                 token.type = CEGEX_TOKEN_CLASS_NOT_WORD;
-                token.flags |= TOKEN_PERL;
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
                 break;
             case 'd':
                 token.type = CEGEX_TOKEN_CLASS_DIGIT;
-                token.flags |= TOKEN_PERL;
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
                 break;
             case 'D':
                 token.type = CEGEX_TOKEN_CLASS_NOT_DIGIT;
-                token.flags |= TOKEN_PERL;
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
                 break;
             case 's':
                 token.type = CEGEX_TOKEN_CLASS_WHITESPACE;
-                token.flags |= TOKEN_PERL;
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
                 break;
             case 'S':
                 token.type = CEGEX_TOKEN_CLASS_NOT_WHITESPACE;
-                token.flags |= TOKEN_PERL;
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
                 break;
 
                 // Anchors
@@ -146,30 +146,29 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                 } else if(current == 'x') {
                     token.type = CEGEX_TOKEN_ESCAPE_HEX;
                 } else {
-                    token.type = CEGEX_TOKEN_CHARACTER;
+                    token.type = CEGEX_TOKEN_CHARCODE;
                 }
             } break;
             }
         } else {
             token.type = cegex_token_type_from_char(current);
-            if(CEGEX_TOKEN_CHARACTER != token.type) {
-                token.flags |= TOKEN_SPECIAL;
+            if(CEGEX_TOKEN_CHARCODE != token.type) {
+                token.flags |= CEGEX_TOKEN_FLG_SPECIAL;
             }
 
             if(current == ' ') {
-                token.flags |= TOKEN_WHITESPACE;
+                token.flags |= CEGEX_TOKEN_FLG_WHITESPACE;
             }
-
             if(isdigit(current)) {
-                token.flags |= TOKEN_NUMBER;
+                token.flags |= CEGEX_TOKEN_FLG_NUMBER;
             }
 
             if(isxdigit(current)) {
-                token.flags |= TOKEN_HEX_DIGIT;
+                token.flags |= CEGEX_TOKEN_FLG_HEX_DIGIT;
             }
 
             if(cegex_isodigit(current)) {
-                token.flags |= TOKEN_OCT_DIGIT;
+                token.flags |= CEGEX_TOKEN_FLG_OCT_DIGIT;
             }
         }
 
