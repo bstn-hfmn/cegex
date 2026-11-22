@@ -527,10 +527,6 @@ fail:
     return status;
 }
 
-/**
- * CharacterSet
- *  ::= "[" [ "^" ] CharacterSetElements "]";
- */
 cegex_status cegex_parser_character_set(cegex_parser* ctx,
                                         cegex_parse_node** out)
 {
@@ -761,12 +757,6 @@ void cegex_parser_skip_whitespace(cegex_parser* ctx)
     }
 }
 
-/**
- * CountedQuantifier
- *  ::= "{" Integer "}"
- *   |  "{" Integer "," Integer "}"
- *   |  "{" Integer "," "}"
- */
 cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
                                              cegex_parse_node** out)
 {
@@ -778,24 +768,20 @@ cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
     cegex_status status = CEGEX_OK;
     cegex_counted_quantifier_type type;
 
-    // "{"
     CEGEX_TRY(
         cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_OPEN));
 
     cegex_parser_skip_whitespace(ctx);
-    // Integer
     if(CEGEX_OK != cegex_parser_integer(ctx, &min)) {
         status = CEGEX_ERR_UNEXPECTED;
         goto fail;
     }
 
     cegex_parser_skip_whitespace(ctx);
-    // "}"
     if(CEGEX_OK == cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_CLOSE)) {
         type = CEGEX_COUNTED_QUANTIFIER_EXACT;
     } else {
         cegex_parser_skip_whitespace(ctx);
-        // ","
         if(CEGEX_OK != cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_COMMA)) {
             status = CEGEX_ERR_UNEXPECTED;
             goto fail;
@@ -809,14 +795,12 @@ cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
         }
 
         if(current.flags & CEGEX_TOKEN_FLG_NUMBER) {
-            // Integer
             if(CEGEX_OK != cegex_parser_integer(ctx, &max)) {
                 status = CEGEX_ERR_UNEXPECTED;
                 goto fail;
             }
 
             cegex_parser_skip_whitespace(ctx);
-            // "}"
             if(CEGEX_OK != cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_CLOSE)) {
                 status = CEGEX_ERR_UNEXPECTED;
                 goto fail;
@@ -830,7 +814,6 @@ cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
             type = CEGEX_COUNTED_QUANTIFIER_MIN_MAX;
         } else {
             cegex_parser_skip_whitespace(ctx);
-            // "}"
             if(CEGEX_OK != cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_CLOSE)) {
                 status = CEGEX_ERR_UNEXPECTED;
                 goto fail;
@@ -1374,7 +1357,7 @@ int main(void)
     cegex_tokenizer tokenizer = { 0 };
     cegex_tokenized_expr tokenized = { 0 };
 
-    const char* expr = "\\w";
+    const char* expr = "[A-Za-z][A-Za-z0-9:_-]*";
     if((status = cegex_tokenizer_exec(&tokenizer, expr, strlen(expr), &tokenized)) != CEGEX_OK) {
         printf("Error occured during tokenization\n");
         goto free;
