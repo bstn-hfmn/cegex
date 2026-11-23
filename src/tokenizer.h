@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #define CEGEX_TOKEN_FLG_WHITESPACE 0x01
-#define CEGEX_TOKEN_FLG_NUMBER     0x02
+#define CEGEX_TOKEN_FLG_DIGIT      0x02
 #define CEGEX_TOKEN_FLG_HEX_DIGIT  0x04
 #define CEGEX_TOKEN_FLG_OCT_DIGIT  0x08
 #define CEGEX_TOKEN_FLG_ESC        0x10

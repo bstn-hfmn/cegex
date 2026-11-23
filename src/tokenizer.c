@@ -145,8 +145,6 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                     iterator.index -= 1;
                 } else if(current == 'x') {
                     token.type = CEGEX_TOKEN_ESCAPE_HEX;
-                } else {
-                    token.type = CEGEX_TOKEN_CHARCODE;
                 }
             } break;
             }
@@ -159,8 +157,9 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
             if(current == ' ') {
                 token.flags |= CEGEX_TOKEN_FLG_WHITESPACE;
             }
+
             if(isdigit(current)) {
-                token.flags |= CEGEX_TOKEN_FLG_NUMBER;
+                token.flags |= CEGEX_TOKEN_FLG_DIGIT;
             }
 
             if(isxdigit(current)) {
