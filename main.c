@@ -333,11 +333,7 @@ cegex_status cegex_character_set_add_range(cegex_character_set* set,
                                            cegex_uchar high)
 {
     cegex_status status = CEGEX_ERR_UNKNOWN;
-    cegex_uchar* set_characters = set->characters;
     for(cegex_uchar curr = low; curr <= high; curr += 1) {
-        if(array_contains((void**) &set_characters, set->num_characters, sizeof(cegex_uchar), &curr, (comparator) cegex_uchar_eq))
-            continue;
-
         CEGEX_TRY(
             cegex_character_set_add(set, curr));
     }
@@ -755,7 +751,7 @@ cegex_status cegex_parser_primary(cegex_parser* ctx,
         node_type = (current.type == CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_NOT_WORD_BOUNDARY : node_type;
 
         CEGEX_TRY(
-            cegex_parser_expect_tok_flg(ctx, CEGEX_TOKEN_FLG_ESC));
+            cegex_parser_expect_tok_typ(ctx, current.type));
 
         *out = cegex_parse_node_empty(node_type);
     } break;
@@ -1559,9 +1555,8 @@ void cegex_parse_node_print(cegex_parse_node* root)
 
 void cegex_parser_init(cegex_parser* parser)
 {
+    memset(parser, 0, sizeof(cegex_parser));
     ARRAY_INIT(&parser->group_id_stack);
-    parser->num_parsed = 0;
-    parser->token_iterator = (cegex_token_iterator){ 0 };
 }
 
 void cegex_parser_free(cegex_parser* parser)
@@ -1580,7 +1575,7 @@ int main(void)
     cegex_tokenizer tokenizer = { 0 };
     cegex_tokenized_expr tokenized = { 0 };
 
-    const char* expr = "\\123+f";
+    const char* expr = "(</?)([A-Za-z][A-Za-z0-9:_-]*)";
     if((status = cegex_tokenizer_exec(&tokenizer, expr, strlen(expr), &tokenized)) != CEGEX_OK) {
         printf("Error occured during tokenization\n");
         goto free;
