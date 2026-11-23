@@ -189,6 +189,7 @@ typedef struct cegex_parse_node
     {
         struct
         {
+            uint32_t index;
             bool is_capturing;
         } group;
 
@@ -212,13 +213,17 @@ typedef struct cegex_parse_node
 typedef ITERATOR(cegex_token) cegex_token_iterator;
 typedef struct cegex_parsed_expr
 {
+    size_t num_groups;
+
     cegex_parse_node* root;
     cegex_tokenized_expr tokenized;
 } cegex_parsed_expr;
 
+typedef ARRAY(uint32_t) cegex_group_id_stack;
 typedef struct cegex_parser
 {
     cegex_token_iterator token_iterator;
+    cegex_group_id_stack group_id_stack;
 
     size_t num_parsed;
     cegex_parsed_expr parsed[CEGEX_EXPRESSION_CAPACITY];
@@ -228,7 +233,8 @@ bool cegex_token_starts_primary(cegex_token tok)
 {
     if(tok.type == CEGEX_TOKEN_PLUS ||
        tok.type == CEGEX_TOKEN_QUESTION_MARK ||
-       tok.type == CEGEX_TOKEN_STAR)
+       tok.type == CEGEX_TOKEN_STAR ||
+       tok.type == CEGEX_TOKEN_PAREN_CLOSE)
         return false;
 
     return true;
@@ -665,6 +671,10 @@ fail:
     return status;
 }
 
+cegex_status cegex_parser_expr(cegex_parser* ctx,
+                               uint32_t precedence,
+                               cegex_parse_node** out);
+
 cegex_status cegex_parser_primary(cegex_parser* ctx,
                                   cegex_parse_node** out)
 {
@@ -737,12 +747,42 @@ cegex_status cegex_parser_primary(cegex_parser* ctx,
         node_type = (current.type == CEGEX_TOKEN_ANCHOR_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_WORD_BOUNDARY : node_type;
         node_type = (current.type == CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_NOT_WORD_BOUNDARY : node_type;
 
-        CEGEX_TRY(cegex_parser_expect_tok_flg(ctx, CEGEX_TOKEN_FLG_SPECIAL));
+        CEGEX_TRY(
+            cegex_parser_expect_tok_flg(ctx, CEGEX_TOKEN_FLG_ESC));
+
         *out = cegex_parse_node_empty(node_type);
     } break;
 
     case CEGEX_TOKEN_PAREN_OPEN: {
-        // group
+        CEGEX_TRY(
+            cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_PAREN_OPEN));
+
+        bool is_capturing = true;
+        if(CEGEX_OK == cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_QUESTION_MARK)) {
+            CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_COLON));
+            is_capturing = false;
+        }
+
+        CEGEX_TRY(
+            ARRAY_PUSH(&ctx->group_id_stack, working->num_groups));
+        working->num_groups++;
+
+        cegex_parse_node* expr = NULL;
+        CEGEX_TRY(
+            cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_NONE, &expr));
+
+        uint32_t group_id;
+        CEGEX_TRY(
+            ARRAY_POP(&ctx->group_id_stack, &group_id));
+
+        CEGEX_TRY(
+            cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_PAREN_CLOSE));
+
+        cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_GROUP, expr);
+        node->data.group.is_capturing = is_capturing;
+        node->data.group.index = group_id;
+
+        *out = node;
     } break;
 
     default: {
@@ -760,6 +800,7 @@ cegex_status cegex_parser_primary(cegex_parser* ctx,
     } break;
     }
 
+    return CEGEX_OK;
 fail:
     return status;
 }
@@ -956,8 +997,7 @@ cegex_status cegex_parser_expr(cegex_parser* ctx,
                                uint32_t precedence,
                                cegex_parse_node** out)
 {
-    cegex_status status = CEGEX_OK;
-
+    cegex_status status = CEGEX_ERR_UNKNOWN;
     cegex_parse_node* lhs = NULL;
     CEGEX_TRY(cegex_parser_primary(ctx, &lhs));
 
@@ -976,7 +1016,7 @@ cegex_status cegex_parser_expr(cegex_parser* ctx,
             if(CEGEX_OK == (status = cegex_parser_quantifier(ctx, &lhs))) {
                 continue;
             } else if(CEGEX_ERR_UNEXPECTED != status) {
-                // Due to '{' starting both a primary and a quantifier expression, 'cegex_parser_quantifier'
+                // Due to '{' starting both a primary and a quantifier, 'cegex_parser_quantifier'
                 // will return 'CEGEX_ERR_UNEXPECTED' when it tried to parse a counted quantifier and failed,
                 // this "error" is recoverable. However, any other error is a reason to abort the parsing process.
                 goto fail;
@@ -995,6 +1035,14 @@ cegex_status cegex_parser_expr(cegex_parser* ctx,
                 cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_ALTERNATION + 1, &rhs));
 
             lhs = cegex_parse_node_binary(CEGEX_PARSE_NODE_ALTERNATE, lhs, rhs);
+        } else if(current.type == CEGEX_TOKEN_PAREN_CLOSE) {
+            if(ARRAY_EMPTY(&ctx->group_id_stack)) {
+                status = CEGEX_ERR_SYNTAX;
+                goto fail;
+            }
+
+            *out = lhs;
+            return CEGEX_OK;
         } else if(cegex_token_starts_primary(current)) {
             // Implicit concatination without an infix operator
             if(precedence > CEGEX_PARSING_PRECEDENCE_CONCAT)
@@ -1437,8 +1485,8 @@ static void cegex_parse_node_print_impl(
         break;
 
     case CEGEX_PARSE_NODE_GROUP:
-        printf(" <capturing=%s>",
-               node->data.group.is_capturing ? "true" : "false");
+        printf(" <capturing=%s, id=%u>",
+               node->data.group.is_capturing ? "true" : "false", node->data.group.index);
         break;
 
     case CEGEX_PARSE_NODE_QUANTIFIER_COUNTED:
@@ -1501,6 +1549,21 @@ void cegex_parse_node_print(cegex_parse_node* root)
 }
 /***************************************** */
 
+void cegex_parser_init(cegex_parser* parser)
+{
+    ARRAY_INIT(&parser->group_id_stack);
+    parser->num_parsed = 0;
+    parser->token_iterator = (cegex_token_iterator){ 0 };
+}
+
+void cegex_parser_free(cegex_parser* parser)
+{
+    ARRAY_FREE(&parser->group_id_stack);
+    for(size_t i = 0; i < parser->num_parsed; i++) {
+        cegex_parse_node_free(parser->parsed[i].root);
+    }
+}
+
 int main(void)
 {
     cegex_status status = CEGEX_OK;
@@ -1509,13 +1572,14 @@ int main(void)
     cegex_tokenizer tokenizer = { 0 };
     cegex_tokenized_expr tokenized = { 0 };
 
-    const char* expr = "\\013[abc]{1,3}a*";
+    const char* expr = "(<)(style)\\b([^>]*)(>)";
     if((status = cegex_tokenizer_exec(&tokenizer, expr, strlen(expr), &tokenized)) != CEGEX_OK) {
         printf("Error occured during tokenization\n");
         goto free;
     }
 
-    cegex_parser parser = { 0 };
+    cegex_parser parser;
+    cegex_parser_init(&parser);
     if((status = cegex_parser_exec(&parser, tokenized, &root)) != CEGEX_OK) {
         printf("Error occured during parsing\n");
         goto free;
@@ -1524,7 +1588,7 @@ int main(void)
     cegex_parse_node_print(root);
 
 free:
-    cegex_parse_node_free(root);
+    cegex_parser_free(&parser);
     cegex_tokenizer_free(&tokenizer);
     return status;
 }

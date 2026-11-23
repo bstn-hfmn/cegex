@@ -20,7 +20,8 @@ typedef enum cegex_status
     CEGEX_ERR_MEMORY,
     CEGEX_ERR_SYNTAX,
     CEGEX_ERR_LIMIT,
-    CEGEX_ERR_UNSUPPORTED
+    CEGEX_ERR_UNSUPPORTED,
+    CEGEX_ERR_UNKNOWN
 } cegex_status;
 
 #endif
