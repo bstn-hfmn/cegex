@@ -1,20 +1,20 @@
 #include "automata.h"
 #include <assert.h>
 
-bool nfa_state_id_eq(nfa_state_id* a,
-                     nfa_state_id* b)
+static bool nfa_state_id_eq(nfa_state_id* a,
+                            nfa_state_id* b)
 {
     return *a == *b;
 }
 
-bool nfa_match_entry_eq(nfa_match_entry* a,
-                        nfa_match_entry* b)
+static bool nfa_match_entry_eq(nfa_match_entry* a,
+                               nfa_match_entry* b)
 {
     return a->state_id == b->state_id && a->subject_index == b->subject_index;
 }
 
-bool cegex_uchar_eq(cegex_uchar* a,
-                    cegex_uchar* b)
+static bool cegex_uchar_eq(cegex_uchar* a,
+                           cegex_uchar* b)
 {
     return *a == *b;
 }

@@ -52,7 +52,7 @@ static int cegex_isodigit(int c)
 cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                                   const char* source,
                                   size_t length,
-                                  cegex_tokenized_expr* out)
+                                  cegex_tokenized_expr** out)
 {
     assert(ctx != NULL);
     if(ctx->num_tokenized >= CEGEX_EXPRESSION_CAPACITY) {
@@ -183,7 +183,7 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
     ctx->tokenized[ctx->num_tokenized].tokens = array;
 
     if(out != NULL) {
-        *out = ctx->tokenized[ctx->num_tokenized];
+        *out = &ctx->tokenized[ctx->num_tokenized];
     }
 
     ctx->num_tokenized += 1;

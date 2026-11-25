@@ -46,8 +46,10 @@ function(cegex_configure_target target)
 endfunction()
 
 set(CEGEX_UTIL_SOURCES
+    src/charset.h src/charset.c
     src/automata.h src/automata.c
     src/tokenizer.h src/tokenizer.c
+    src/parser.h src/parser.c
     src/util/debug.h src/util/debug.c
     src/util/collections.h src/util/collections.c)
 

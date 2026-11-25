@@ -92,7 +92,7 @@ cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx);
 cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                                   const char* source,
                                   size_t length,
-                                  cegex_tokenized_expr* out);
+                                  cegex_tokenized_expr** out);
 
 void cegex_tokenizer_free(cegex_tokenizer* ctx);
 

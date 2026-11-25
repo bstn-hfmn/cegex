@@ -1,7 +1,16 @@
 #ifndef CEGEX_COMMON_H
 #define CEGEX_COMMON_H
 
-#define CEGEX_EXPRESSION_CAPACITY 32
+#include <stdbool.h>
+
+#define CEGEX_ASCII_CHARCODE_BEGIN 32
+#define CEGEX_ASCII_CHARCODE_END   126
+
+#define CEGEX_RADIX_OCT            8
+#define CEGEX_RADIX_DEC            10
+#define CEGEX_RADIX_HEX            16
+
+#define CEGEX_EXPRESSION_CAPACITY  32
 
 #define CEGEX_TRY(expr)        \
     do {                       \
