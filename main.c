@@ -110,7 +110,6 @@
 #define CEGEX_PARSING_PRECEDENCE_ALTERNATION 10
 #define CEGEX_PARSING_PRECEDENCE_CONCAT      20
 #define CEGEX_PARSING_PRECEDENCE_QUANTIFIER  30
-#define CEGEX_PARSING_PRECEDENCE_LAZY        40
 
 #define CEGEX_CHARSET(neg, num, chars) \
     ((cegex_character_set){            \
@@ -230,6 +229,66 @@ typedef struct cegex_parser
     cegex_parsed_expr parsed[CEGEX_EXPRESSION_CAPACITY];
 } cegex_parser;
 
+typedef cegex_status (*cegex_parsing_fn)(
+    cegex_parser* ctx,
+    cegex_token tok,
+    uint32_t precedence,
+    cegex_parse_node* lhs,
+    cegex_parse_node** out);
+
+typedef struct cegex_parsing_rule
+{
+    uint32_t precedence;
+    cegex_token_type type;
+    cegex_parsing_fn parse;
+} cegex_parsing_rule;
+
+#define CEGEX_DECL_PARSING_FN(name)          \
+    cegex_status name(cegex_parser* ctx,     \
+                      cegex_token tok,       \
+                      uint32_t precedence,   \
+                      cegex_parse_node* lhs, \
+                      cegex_parse_node** out)
+
+CEGEX_DECL_PARSING_FN(cegex_parser_charcode);
+CEGEX_DECL_PARSING_FN(cegex_parser_perl);
+CEGEX_DECL_PARSING_FN(cegex_parser_quantifier);
+CEGEX_DECL_PARSING_FN(cegex_parser_alternate);
+CEGEX_DECL_PARSING_FN(cegex_parser_character_set);
+CEGEX_DECL_PARSING_FN(cegex_parser_group);
+CEGEX_DECL_PARSING_FN(cegex_parser_anchor);
+
+static const cegex_parsing_rule prefix_rules[] = {
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CHARCODE, cegex_parser_charcode },
+
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_DOT, cegex_parser_perl },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_WORD, cegex_parser_perl },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_NOT_WORD, cegex_parser_perl },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_DIGIT, cegex_parser_perl },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_NOT_DIGIT, cegex_parser_perl },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_WHITESPACE, cegex_parser_perl },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_CLASS_NOT_WHITESPACE, cegex_parser_perl },
+
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_SQUARE_OPEN, cegex_parser_character_set },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_PAREN_OPEN, cegex_parser_group },
+
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_HAT, cegex_parser_anchor },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_DOLLAR, cegex_parser_anchor },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_ANCHOR_BOUNDARY, cegex_parser_anchor },
+    { CEGEX_PARSING_PRECEDENCE_NONE, CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY, cegex_parser_anchor },
+};
+
+static const cegex_parsing_rule infix_rules[] = {
+    { CEGEX_PARSING_PRECEDENCE_ALTERNATION, CEGEX_TOKEN_ALTERNATE, cegex_parser_alternate }
+};
+
+static const cegex_parsing_rule suffix_rules[] = {
+    { CEGEX_PARSING_PRECEDENCE_QUANTIFIER, CEGEX_TOKEN_STAR, cegex_parser_quantifier },
+    { CEGEX_PARSING_PRECEDENCE_QUANTIFIER, CEGEX_TOKEN_PLUS, cegex_parser_quantifier },
+    { CEGEX_PARSING_PRECEDENCE_QUANTIFIER, CEGEX_TOKEN_QUESTION_MARK, cegex_parser_quantifier },
+    { CEGEX_PARSING_PRECEDENCE_QUANTIFIER, CEGEX_TOKEN_CURLY_OPEN, cegex_parser_quantifier },
+};
+
 bool cegex_token_starts_primary(cegex_token tok)
 {
     if(tok.type == CEGEX_TOKEN_PLUS ||
@@ -239,20 +298,6 @@ bool cegex_token_starts_primary(cegex_token tok)
         return false;
 
     return true;
-}
-
-bool cegex_token_starts_quantifier(cegex_token tok)
-{
-    switch(tok.type) {
-    case CEGEX_TOKEN_PLUS:
-    case CEGEX_TOKEN_CURLY_OPEN:
-    case CEGEX_TOKEN_STAR:
-    case CEGEX_TOKEN_QUESTION_MARK:
-        return true;
-
-    default:
-        return false;
-    }
 }
 
 void cegex_parse_node_free(cegex_parse_node* node)
@@ -475,8 +520,8 @@ cegex_character_set cegex_perl_set_by_tok_type(cegex_token_type type)
     }
 }
 
-cegex_status cegex_parser_charcode(cegex_parser* ctx,
-                                   cegex_uchar* out);
+cegex_status cegex_parser_expect_charcode(cegex_parser* ctx,
+                                          cegex_uchar* out);
 
 cegex_status cegex_parser_unsigned_digit(cegex_parser* ctx,
                                          size_t limit,
@@ -513,7 +558,7 @@ cegex_status cegex_parser_unsigned_digit(cegex_parser* ctx,
 
         cegex_uchar digit_charcode;
         CEGEX_TRY(
-            cegex_parser_charcode(ctx, &digit_charcode));
+            cegex_parser_expect_charcode(ctx, &digit_charcode));
 
         buffer[num_digits++] = (char) digit_charcode;
     }
@@ -532,8 +577,8 @@ fail:
     return status;
 }
 
-cegex_status cegex_parser_charcode(cegex_parser* ctx,
-                                   cegex_uchar* out)
+cegex_status cegex_parser_expect_charcode(cegex_parser* ctx,
+                                          cegex_uchar* out)
 {
     assert(ctx != NULL);
     assert(out != NULL);
@@ -542,7 +587,7 @@ cegex_status cegex_parser_charcode(cegex_parser* ctx,
     cegex_token tok;
     CEGEX_TRY(ITERATOR_CURRENT(&ctx->token_iterator, &tok));
 
-    cegex_parsed_expr* working = cegex_parser_working_expr(ctx);
+    const cegex_parsed_expr* working = cegex_parser_working_expr(ctx);
     if(tok.flags & CEGEX_TOKEN_FLG_ESC) {
         switch(tok.type) {
         case CEGEX_TOKEN_ESCAPE_HEX: {
@@ -620,109 +665,53 @@ fail:
     return status;
 }
 
-cegex_status cegex_parser_character_set(cegex_parser* ctx,
-                                        cegex_parse_node** out)
+cegex_status cegex_parser_expr(cegex_parser* ctx,
+                               uint32_t precedence,
+                               cegex_parse_node** out);
+
+cegex_status cegex_parser_charcode(cegex_parser* ctx,
+                                   cegex_token tok,
+                                   uint32_t precedence,
+                                   cegex_parse_node* lhs,
+                                   cegex_parse_node** out)
 {
+    (void) tok;
+    (void) lhs;
+    (void) precedence;
+
     assert(ctx != NULL);
     assert(out != NULL);
-
     cegex_status status = CEGEX_ERR_UNKNOWN;
 
-    cegex_character_set set = { 0 };
-    CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_SQUARE_OPEN));
+    cegex_uchar charcode;
+    CEGEX_TRY(cegex_parser_expect_charcode(ctx, &charcode));
+    *out = cegex_parse_node_charset(CEGEX_CHARSET_SINGLE(charcode));
 
-    cegex_uchar previous_charcode = 0;
-    cegex_token current = { 0 }, previous = { 0 };
-    ITERATOR_CURRENT(&ctx->token_iterator, &current);
-    if(current.type == CEGEX_TOKEN_HAT) {
-        set.negated = true;
-        CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_HAT));
-    }
-
-    ITERATOR_CURRENT(&ctx->token_iterator, &current);
-    while(!ITERATOR_EMPTY(&ctx->token_iterator) && current.type != CEGEX_TOKEN_SQUARE_CLOSE) {
-        cegex_token peeked;
-        if(CEGEX_OK == ITERATOR_PEEK(&ctx->token_iterator, &peeked)) {
-            if(current.type == CEGEX_TOKEN_MINUS &&
-               previous.type != CEGEX_TOKEN_UNKNOWN &&
-               cegex_token_is_charset_range_rune(previous) &&
-               cegex_token_is_charset_range_rune(peeked)) {
-
-                cegex_uchar low = previous_charcode, high = 0;
-                CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_MINUS));
-                CEGEX_TRY(cegex_parser_charcode(ctx, &high));
-
-                if(low > high) {
-                    status = CEGEX_ERR_SYNTAX;
-                    goto fail;
-                }
-
-                // Have to reset the previous token here, [a-b-c] would otherwise create two seperate ranges
-                previous.type = CEGEX_TOKEN_UNKNOWN;
-                CEGEX_TRY(cegex_character_set_add_range(&set, low, high));
-                goto next;
-            }
-        }
-
-        cegex_uchar charcode;
-        CEGEX_TRY(cegex_parser_charcode(ctx, &charcode));
-
-        if(current.flags & CEGEX_TOKEN_FLG_ESC) {
-            if(current.flags & CEGEX_TOKEN_FLG_PERL) {
-                CEGEX_TRY(cegex_character_set_add_subset(&set, cegex_perl_set_by_tok_type(current.type)));
-            } else {
-                CEGEX_TRY(cegex_character_set_add(&set, charcode));
-            }
-        } else {
-            assert(current.length == 1);
-            CEGEX_TRY(cegex_character_set_add(&set, charcode));
-        }
-
-        previous = current;
-        previous_charcode = charcode;
-    next:
-        ITERATOR_CURRENT(&ctx->token_iterator, &current);
-    }
-
-    if(set.num_characters == 0) {
-        status = CEGEX_ERR_SYNTAX;
-        goto fail;
-    }
-
-    CEGEX_TRY(
-        cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_SQUARE_CLOSE));
-
-    *out = cegex_parse_node_charset(set);
     return CEGEX_OK;
 
 fail:
     return status;
 }
 
-cegex_status cegex_parser_expr(cegex_parser* ctx,
+cegex_status cegex_parser_perl(cegex_parser* ctx,
+                               cegex_token tok,
                                uint32_t precedence,
-                               cegex_parse_node** out);
-
-cegex_status cegex_parser_primary(cegex_parser* ctx,
-                                  cegex_parse_node** out)
+                               cegex_parse_node* lhs,
+                               cegex_parse_node** out)
 {
+    (void) lhs;
+    (void) tok;
+    (void) precedence;
+
+    assert(ctx != NULL);
+    assert(out != NULL);
+
     cegex_status status = CEGEX_ERR_UNKNOWN;
 
     cegex_token current;
     CEGEX_TRY(ITERATOR_CURRENT(&ctx->token_iterator, &current));
 
-    if(!cegex_token_starts_primary(current))
-        return CEGEX_ERR_SYNTAX;
-
-    cegex_parsed_expr* working = cegex_parser_working_expr(ctx);
     switch(current.type) {
-
-    case CEGEX_TOKEN_CHARCODE:
-        CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CHARCODE));
-        *out = cegex_parse_node_charset(
-            CEGEX_CHARSET_SINGLE(working->tokenized.source[current.start]));
-        break;
-
     case CEGEX_TOKEN_CLASS_DOT:
         // Any '.' = [^\n\r]
         CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CLASS_DOT));
@@ -732,11 +721,6 @@ cegex_status cegex_parser_primary(cegex_parser* ctx,
                 .num_characters = 2,
                 .characters = { '\n', '\r' } });
         break;
-
-    case CEGEX_TOKEN_SQUARE_OPEN: {
-        // Character Set [ ... ]
-        CEGEX_TRY(cegex_parser_character_set(ctx, out));
-    } break;
 
     case CEGEX_TOKEN_CLASS_WORD:
     case CEGEX_TOKEN_CLASS_NOT_WORD: {
@@ -770,84 +754,196 @@ cegex_status cegex_parser_primary(cegex_parser* ctx,
 
     } break;
 
-    case CEGEX_TOKEN_HAT:
-    case CEGEX_TOKEN_DOLLAR:
-    case CEGEX_TOKEN_ANCHOR_BOUNDARY:
-    case CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY: {
-        // Anchors ( '^', '$', '\b', '\B' )
-        cegex_parse_node_type node_type = CEGEX_PARSE_NODE_ANCHOR_START;
-        node_type = (current.type == CEGEX_TOKEN_DOLLAR) ? CEGEX_PARSE_NODE_ANCHOR_END : node_type;
-        node_type = (current.type == CEGEX_TOKEN_ANCHOR_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_WORD_BOUNDARY : node_type;
-        node_type = (current.type == CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_NOT_WORD_BOUNDARY : node_type;
-
-        CEGEX_TRY(
-            cegex_parser_expect_tok_typ(ctx, current.type));
-
-        *out = cegex_parse_node_empty(node_type);
-    } break;
-
-    case CEGEX_TOKEN_PAREN_OPEN: {
-        // Group '(' ... ')'
-        CEGEX_TRY(
-            cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_PAREN_OPEN));
-
-        bool is_capturing = true;
-        if(CEGEX_OK == cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_QUESTION_MARK)) {
-            CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_COLON));
-            is_capturing = false;
-        }
-
-        if(ctx->group_id_stack.length >= CEGEX_MAX_GROUPS) {
-            status = CEGEX_ERR_LIMIT;
-            goto fail;
-        }
-
-        CEGEX_TRY(
-            ARRAY_PUSH(&ctx->group_id_stack, working->num_groups));
-
-        if(is_capturing)
-            working->num_groups++;
-
-        cegex_parse_node* expr = NULL;
-        status = cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_NONE, &expr);
-
-        uint32_t group_id;
-        ARRAY_POP(&ctx->group_id_stack, &group_id);
-
-        if(status != CEGEX_OK)
-            goto fail;
-
-        if(CEGEX_OK != (status = cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_PAREN_CLOSE))) {
-            cegex_parse_node_free(expr);
-            goto fail;
-        }
-
-        cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_GROUP, expr);
-        node->data.group.is_capturing = is_capturing;
-        node->data.group.index = is_capturing ? group_id : 0;
-
-        *out = node;
-    } break;
-
     default: {
-        if(current.flags & CEGEX_TOKEN_FLG_ESC) {
-            // Supported escape-sequences and other, '\q', for example, will just decay to 'q'
-            // whereas \n will result in a line-feed.
-            cegex_uchar charcode;
-            CEGEX_TRY(cegex_parser_charcode(ctx, &charcode));
-            *out = cegex_parse_node_charset(CEGEX_CHARSET_SINGLE(charcode));
-        } else {
-            // The tokenizer hands out special types for tokens that may have a different meaning
-            // in a certain context, when we get here it is confirmed to be a concatination.
-            CEGEX_TRY(cegex_parser_expect_tok_flg(ctx, CEGEX_TOKEN_FLG_SPECIAL));
-            *out = cegex_parse_node_charset(
-                CEGEX_CHARSET_SINGLE(working->tokenized.source[current.start]));
-        }
-    } break;
+        status = CEGEX_ERR_UNEXPECTED;
+        goto fail;
+    };
     }
 
     return CEGEX_OK;
+fail:
+    return status;
+}
 
+cegex_status cegex_parser_group(cegex_parser* ctx,
+                                cegex_token tok,
+                                uint32_t precedence,
+                                cegex_parse_node* lhs,
+                                cegex_parse_node** out)
+{
+    (void) tok;
+    (void) lhs;
+    (void) precedence;
+
+    cegex_status status = CEGEX_ERR_UNKNOWN;
+    cegex_parsed_expr* working = cegex_parser_working_expr(ctx);
+
+    CEGEX_TRY(
+        cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_PAREN_OPEN));
+
+    bool is_capturing = true;
+    if(CEGEX_OK == cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_QUESTION_MARK)) {
+        CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_COLON));
+        is_capturing = false;
+    }
+
+    if(ctx->group_id_stack.length >= CEGEX_MAX_GROUPS) {
+        status = CEGEX_ERR_LIMIT;
+        goto fail;
+    }
+
+    CEGEX_TRY(
+        ARRAY_PUSH(&ctx->group_id_stack, working->num_groups));
+
+    if(is_capturing)
+        working->num_groups++;
+
+    cegex_parse_node* expr = NULL;
+    status = cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_NONE, &expr);
+
+    uint32_t group_id;
+    ARRAY_POP(&ctx->group_id_stack, &group_id);
+
+    if(status != CEGEX_OK)
+        goto fail;
+
+    if(CEGEX_OK != (status = cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_PAREN_CLOSE))) {
+        cegex_parse_node_free(expr);
+        goto fail;
+    }
+
+    cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_GROUP, expr);
+    node->data.group.is_capturing = is_capturing;
+    node->data.group.index = is_capturing ? group_id : 0;
+
+    *out = node;
+    return CEGEX_OK;
+fail:
+    return status;
+}
+
+cegex_status cegex_parser_character_set(cegex_parser* ctx,
+                                        cegex_token tok,
+                                        uint32_t precedence,
+                                        cegex_parse_node* lhs,
+                                        cegex_parse_node** out)
+{
+    (void) tok;
+    (void) precedence;
+    (void) lhs;
+
+    assert(ctx != NULL);
+    assert(out != NULL);
+
+    cegex_status status = CEGEX_ERR_UNKNOWN;
+
+    cegex_character_set set = { 0 };
+    CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_SQUARE_OPEN));
+
+    cegex_uchar previous_charcode = 0;
+    cegex_token current = { 0 }, previous = { 0 };
+    ITERATOR_CURRENT(&ctx->token_iterator, &current);
+    if(current.type == CEGEX_TOKEN_HAT) {
+        set.negated = true;
+        CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_HAT));
+    }
+
+    ITERATOR_CURRENT(&ctx->token_iterator, &current);
+    while(!ITERATOR_EMPTY(&ctx->token_iterator) && current.type != CEGEX_TOKEN_SQUARE_CLOSE) {
+        cegex_token peeked;
+        if(CEGEX_OK == ITERATOR_PEEK(&ctx->token_iterator, &peeked)) {
+            if(current.type == CEGEX_TOKEN_MINUS &&
+               previous.type != CEGEX_TOKEN_UNKNOWN &&
+               cegex_token_is_charset_range_rune(previous) &&
+               cegex_token_is_charset_range_rune(peeked)) {
+
+                cegex_uchar low = previous_charcode, high = 0;
+                CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_MINUS));
+                CEGEX_TRY(cegex_parser_expect_charcode(ctx, &high));
+
+                if(low > high) {
+                    status = CEGEX_ERR_SYNTAX;
+                    goto fail;
+                }
+
+                // Have to reset the previous token here, [a-b-c] would otherwise create two seperate ranges
+                previous.type = CEGEX_TOKEN_UNKNOWN;
+                CEGEX_TRY(cegex_character_set_add_range(&set, low, high));
+                goto next;
+            }
+        }
+
+        cegex_uchar charcode;
+        CEGEX_TRY(cegex_parser_expect_charcode(ctx, &charcode));
+
+        if(current.flags & CEGEX_TOKEN_FLG_ESC) {
+            if(current.flags & CEGEX_TOKEN_FLG_PERL) {
+                CEGEX_TRY(cegex_character_set_add_subset(&set, cegex_perl_set_by_tok_type(current.type)));
+            } else {
+                CEGEX_TRY(cegex_character_set_add(&set, charcode));
+            }
+        } else {
+            assert(current.length == 1);
+            CEGEX_TRY(cegex_character_set_add(&set, charcode));
+        }
+
+        previous = current;
+        previous_charcode = charcode;
+    next:
+        ITERATOR_CURRENT(&ctx->token_iterator, &current);
+    }
+
+    if(set.num_characters == 0) {
+        status = CEGEX_ERR_SYNTAX;
+        goto fail;
+    }
+
+    CEGEX_TRY(
+        cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_SQUARE_CLOSE));
+
+    *out = cegex_parse_node_charset(set);
+    return CEGEX_OK;
+
+fail:
+    return status;
+}
+
+cegex_status cegex_parser_anchor(cegex_parser* ctx,
+                                 cegex_token tok,
+                                 uint32_t precedence,
+                                 cegex_parse_node* lhs,
+                                 cegex_parse_node** out)
+{
+    (void) lhs;
+    (void) tok;
+    (void) precedence;
+
+    assert(ctx != NULL);
+    assert(out != NULL);
+
+    cegex_status status = CEGEX_ERR_UNKNOWN;
+
+    cegex_token current;
+    CEGEX_TRY(ITERATOR_CURRENT(&ctx->token_iterator, &current));
+
+    if(current.type != CEGEX_TOKEN_DOLLAR &&
+       current.type != CEGEX_TOKEN_HAT &&
+       current.type != CEGEX_TOKEN_ANCHOR_BOUNDARY &&
+       current.type != CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY) {
+        status = CEGEX_ERR_UNEXPECTED;
+        goto fail;
+    }
+
+    cegex_parse_node_type node_type = CEGEX_PARSE_NODE_ANCHOR_START;
+    node_type = (current.type == CEGEX_TOKEN_DOLLAR) ? CEGEX_PARSE_NODE_ANCHOR_END : node_type;
+    node_type = (current.type == CEGEX_TOKEN_ANCHOR_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_WORD_BOUNDARY : node_type;
+    node_type = (current.type == CEGEX_TOKEN_ANCHOR_NOT_BOUNDARY) ? CEGEX_PARSE_NODE_ANCHOR_NOT_WORD_BOUNDARY : node_type;
+
+    CEGEX_TRY(
+        cegex_parser_expect_tok_typ(ctx, current.type));
+
+    *out = cegex_parse_node_empty(node_type);
+    return CEGEX_OK;
 fail:
     return status;
 }
@@ -868,12 +964,28 @@ void cegex_parser_skip_whitespace(cegex_parser* ctx)
     }
 }
 
+static bool cegex_parse_node_is_quantifier(const cegex_parse_node* node)
+{
+    switch(node->type) {
+    case CEGEX_PARSE_NODE_QUANTIFIER_COUNTED:
+    case CEGEX_PARSE_NODE_QUANTIFIER_LAZY:
+    case CEGEX_PARSE_NODE_QUANTIFIER_OPTIONAL:
+    case CEGEX_PARSE_NODE_QUANTIFIER_PLUS:
+    case CEGEX_PARSE_NODE_QUANTIFIER_STAR:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
+                                             cegex_parse_node* lhs,
                                              cegex_parse_node** out)
 {
     assert(ctx != NULL);
     assert(out != NULL);
-    assert(*out != NULL);
+    assert(lhs != NULL);
 
     size_t min = 0, max = 0;
     cegex_status status = CEGEX_ERR_UNKNOWN;
@@ -883,8 +995,7 @@ cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
         cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_OPEN));
 
     cegex_parser_skip_whitespace(ctx);
-    if(CEGEX_OK != (status = cegex_parser_unsigned_digit(ctx, 0, 10, &min)))
-        goto fail;
+    CEGEX_TRY(cegex_parser_unsigned_digit(ctx, 0, 10, &min));
 
     cegex_parser_skip_whitespace(ctx);
     if(CEGEX_OK == cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_CLOSE)) {
@@ -901,9 +1012,7 @@ cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
         }
 
         if(current.flags & CEGEX_TOKEN_FLG_DIGIT) {
-            if(CEGEX_OK != (status = cegex_parser_unsigned_digit(ctx, 0, 10, &max))) {
-                goto fail;
-            }
+            CEGEX_TRY(cegex_parser_unsigned_digit(ctx, 0, 10, &max));
 
             cegex_parser_skip_whitespace(ctx);
             CEGEX_TRY(cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_CURLY_CLOSE));
@@ -922,7 +1031,7 @@ cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
         }
     }
 
-    cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_QUANTIFIER_COUNTED, *out);
+    cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_QUANTIFIER_COUNTED, lhs);
     node->data.counted.type = type;
 
     switch(type) {
@@ -947,19 +1056,25 @@ fail:
     return status;
 }
 
-/**
- * Quantifier
- *  ::= ("*" | "+" | "?" | CountedQuantifier) [ "?" ];
- */
 cegex_status cegex_parser_quantifier(cegex_parser* ctx,
+                                     cegex_token tok,
+                                     uint32_t precedence,
+                                     cegex_parse_node* lhs,
                                      cegex_parse_node** out)
 {
+    (void) tok;
+    (void) precedence;
+
     assert(ctx != NULL);
+    assert(lhs != NULL);
     assert(out != NULL);
-    assert(*out != NULL);
+
+    if(cegex_parse_node_is_quantifier(lhs))
+        return CEGEX_ERR_SYNTAX;
+
+    cegex_parse_node* quantified = NULL;
 
     cegex_status status = CEGEX_ERR_UNKNOWN;
-
     cegex_token current;
     CEGEX_TRY(
         ITERATOR_CURRENT(&ctx->token_iterator, &current));
@@ -967,8 +1082,9 @@ cegex_status cegex_parser_quantifier(cegex_parser* ctx,
     if(current.type == CEGEX_TOKEN_CURLY_OPEN) {
         const size_t rewind_index = ctx->token_iterator.index;
 
-        status = cegex_parser_counted_quantifier(ctx, out);
+        status = cegex_parser_counted_quantifier(ctx, lhs, &quantified);
         if(CEGEX_ERR_UNEXPECTED == status) {
+            *out = lhs;
             ctx->token_iterator.index = rewind_index;
             goto fail;
         } else if(CEGEX_OK != status) {
@@ -997,39 +1113,80 @@ cegex_status cegex_parser_quantifier(cegex_parser* ctx,
             goto fail;
         }
 
-        cegex_parse_node* node = cegex_parse_node_unary(node_type, *out);
-        *out = node;
+        quantified = cegex_parse_node_unary(node_type, lhs);
     }
 
-    if(CEGEX_OK == ITERATOR_CURRENT(&ctx->token_iterator, &current) &&
-       current.type == CEGEX_TOKEN_QUESTION_MARK) {
-
-        CEGEX_TRY(
-            cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_QUESTION_MARK));
-
-        cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_QUANTIFIER_LAZY, *out);
-        *out = node;
+    if(CEGEX_OK == cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_QUESTION_MARK)) {
+        quantified = cegex_parse_node_unary(CEGEX_PARSE_NODE_QUANTIFIER_LAZY, quantified);
     }
 
+    *out = quantified;
     return CEGEX_OK;
 
 fail:
+    cegex_parse_node_free(quantified);
     return status;
 }
 
-static bool cegex_parse_node_is_quantifier(const cegex_parse_node* node)
+cegex_status cegex_parser_alternate(cegex_parser* ctx,
+                                    cegex_token tok,
+                                    uint32_t precedence,
+                                    cegex_parse_node* lhs,
+                                    cegex_parse_node** out)
 {
-    switch(node->type) {
-    case CEGEX_PARSE_NODE_QUANTIFIER_COUNTED:
-    case CEGEX_PARSE_NODE_QUANTIFIER_LAZY:
-    case CEGEX_PARSE_NODE_QUANTIFIER_OPTIONAL:
-    case CEGEX_PARSE_NODE_QUANTIFIER_PLUS:
-    case CEGEX_PARSE_NODE_QUANTIFIER_STAR:
-        return true;
+    (void) tok;
 
-    default:
-        return false;
+    cegex_status status = CEGEX_ERR_UNKNOWN;
+    cegex_parse_node* rhs = NULL;
+
+    CEGEX_TRY(
+        cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_ALTERNATE));
+
+    CEGEX_TRY(
+        cegex_parser_expr(ctx, precedence, &rhs));
+
+    *out = cegex_parse_node_binary(CEGEX_PARSE_NODE_ALTERNATE, lhs, rhs);
+    return CEGEX_OK;
+
+fail:
+    cegex_parse_node_free(rhs);
+    return status;
+}
+
+const cegex_parsing_rule* cegex_parser_find_prefix(cegex_token_type type)
+{
+    const size_t length = sizeof(prefix_rules) / sizeof(cegex_parsing_rule);
+    for(size_t i = 0; i < length; i++) {
+        if(prefix_rules[i].type == type) {
+            return &prefix_rules[i];
+        }
     }
+
+    return NULL;
+}
+
+const cegex_parsing_rule* cegex_parser_find_suffix(cegex_token_type type)
+{
+    const size_t length = sizeof(suffix_rules) / sizeof(cegex_parsing_rule);
+    for(size_t i = 0; i < length; i++) {
+        if(suffix_rules[i].type == type) {
+            return &suffix_rules[i];
+        }
+    }
+
+    return NULL;
+}
+
+const cegex_parsing_rule* cegex_parser_find_infix(cegex_token_type type)
+{
+    const size_t length = sizeof(infix_rules) / sizeof(cegex_parsing_rule);
+    for(size_t i = 0; i < length; i++) {
+        if(infix_rules[i].type == type) {
+            return &infix_rules[i];
+        }
+    }
+
+    return NULL;
 }
 
 cegex_status cegex_parser_expr(cegex_parser* ctx,
@@ -1037,83 +1194,72 @@ cegex_status cegex_parser_expr(cegex_parser* ctx,
                                cegex_parse_node** out)
 {
     cegex_status status = CEGEX_ERR_UNKNOWN;
+
+    cegex_token current;
     cegex_parse_node* lhs = NULL;
-    CEGEX_TRY(cegex_parser_primary(ctx, &lhs));
+
+    CEGEX_TRY(ITERATOR_CURRENT(&ctx->token_iterator, &current));
+
+    const cegex_parsing_rule* prefix = cegex_parser_find_prefix(current.type);
+    if(prefix != NULL) {
+        CEGEX_TRY(prefix->parse(ctx, current, prefix->precedence, NULL, &lhs));
+    } else {
+        CEGEX_TRY(cegex_parser_charcode(ctx, current, CEGEX_PARSING_PRECEDENCE_NONE, NULL, &lhs));
+    }
 
     while(!ITERATOR_EMPTY(&ctx->token_iterator)) {
-        cegex_token current;
-        CEGEX_TRY(
-            ITERATOR_CURRENT(&ctx->token_iterator, &current));
-
-        if(cegex_token_starts_quantifier(current)) {
-            const bool is_lhs_quantified = cegex_parse_node_is_quantifier(lhs);
-            if(is_lhs_quantified && current.type != CEGEX_TOKEN_CURLY_OPEN) {
-                // Cannot quantifiy an already quantified node, lazy '?' is parsed with the quantifier itself.
-                status = CEGEX_ERR_SYNTAX;
-                goto fail;
-            }
-
-            if(CEGEX_OK == (status = cegex_parser_quantifier(ctx, &lhs))) {
-                if(is_lhs_quantified) {
-                    status = CEGEX_ERR_SYNTAX;
-                    goto fail;
-                }
-
-                continue;
-            } else if(CEGEX_ERR_UNEXPECTED != status) {
-                // Due to '{' starting both a primary and a quantifier, 'cegex_parser_quantifier'
-                // will return 'CEGEX_ERR_UNEXPECTED' when it tried to parse a counted quantifier and failed,
-                // this "error" is recoverable. However, any other error is a reason to abort the parsing process.
-                goto fail;
-            }
-        }
-
-        if(current.type == CEGEX_TOKEN_ALTERNATE) {
-            if(precedence > CEGEX_PARSING_PRECEDENCE_ALTERNATION)
-                break;
-
-            CEGEX_TRY(
-                cegex_parser_expect_tok_typ(ctx, CEGEX_TOKEN_ALTERNATE));
-
-            cegex_parse_node* rhs = NULL;
-            CEGEX_TRY(
-                cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_ALTERNATION + 1, &rhs));
-
-            lhs = cegex_parse_node_binary(CEGEX_PARSE_NODE_ALTERNATE, lhs, rhs);
-        } else if(current.type == CEGEX_TOKEN_PAREN_CLOSE) {
+        CEGEX_TRY(ITERATOR_CURRENT(&ctx->token_iterator, &current));
+        if(current.type == CEGEX_TOKEN_PAREN_CLOSE) {
             if(ARRAY_EMPTY(&ctx->group_id_stack)) {
                 status = CEGEX_ERR_SYNTAX;
                 goto fail;
             }
 
-            // Once hitting the ending token of a group, the token is not being consumed, and there is no state being created.
-            // It will just pass the already parsed expression to the previous caller until hitting the initator of the group,
-            // where the ending token will be consumed and a group node is created (in 'cegex_parser_primary').
-            *out = lhs;
-            return CEGEX_OK;
-        } else if(cegex_token_starts_primary(current)) {
-            // Implicit concatination without an infix operator
+            break;
+        }
+
+        const cegex_parsing_rule* suffix = cegex_parser_find_suffix(current.type);
+        if(suffix != NULL && precedence < suffix->precedence) {
+            cegex_parse_node* node = NULL;
+            status = suffix->parse(ctx, current, suffix->precedence, lhs, &node);
+
+            if(status != CEGEX_OK && current.type != CEGEX_TOKEN_CURLY_OPEN) {
+                goto fail;
+            } else if(status == CEGEX_OK) {
+                lhs = node;
+                continue;
+            }
+        }
+
+        const cegex_parsing_rule* infix = cegex_parser_find_infix(current.type);
+        if(infix != NULL) {
+            if(precedence > infix->precedence)
+                break;
+
+            cegex_parse_node* node = NULL;
+            CEGEX_TRY(infix->parse(ctx, current, infix->precedence + 1, lhs, &node));
+            lhs = node;
+
+            continue;
+        }
+
+        if(cegex_token_starts_primary(current)) {
             if(precedence > CEGEX_PARSING_PRECEDENCE_CONCAT)
                 break;
 
             cegex_parse_node* rhs = NULL;
-            CEGEX_TRY(
-                cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_CONCAT + 1, &rhs));
-
+            CEGEX_TRY(cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_CONCAT + 1, &rhs));
             lhs = cegex_parse_node_binary(CEGEX_PARSE_NODE_CONCAT, lhs, rhs);
-        } else {
-            status = CEGEX_ERR_SYNTAX;
-            goto fail;
+
+            continue;
         }
+
+        break;
     }
 
     *out = lhs;
     return CEGEX_OK;
-
 fail:
-    cegex_parse_node_free(lhs);
-    *out = NULL;
-
     return status;
 }
 
@@ -1611,6 +1757,7 @@ void cegex_parser_init(cegex_parser* parser)
 void cegex_parser_free(cegex_parser* parser)
 {
     ARRAY_FREE(&parser->group_id_stack);
+
     for(size_t i = 0; i < parser->num_parsed; i++) {
         cegex_parse_node_free(parser->parsed[i].root);
     }
@@ -1626,7 +1773,7 @@ int main(void)
 
     cegex_tokenizer tokenizer = { 0 };
     cegex_tokenized_expr tokenized = { 0 };
-    const char* expr = "a{2, }";
+    const char* expr = "[8\\001-\\00499]{1,}?(abc(?:efg))";
     if((status = cegex_tokenizer_exec(&tokenizer, expr, strlen(expr), &tokenized)) != CEGEX_OK) {
         printf("Error occured during tokenization\n");
         goto free;

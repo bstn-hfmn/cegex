@@ -18,7 +18,6 @@
 #define ITERATOR(t)    \
     struct             \
     {                  \
-        size_t saved;  \
         size_t index;  \
         size_t length; \
         t* elements;   \
