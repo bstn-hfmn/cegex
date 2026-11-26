@@ -5,6 +5,7 @@
 #include "./src/parser.h"
 #include "./src/tokenizer.h"
 #include "./src/util/debug.h"
+#include "tests/testing.h"
 #include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -466,8 +467,122 @@ void cegex_parse_node_print(cegex_parse_node* root)
 }
 /***************************************** */
 
+#define NODE_IS(n, t)       is_node_type((n), (t))
+#define NODE_CHARCODE(n, c) is_node_charcode((n), (c))
+
+#define LHS(n)              ((n)->as.binary.lhs)
+#define RHS(n)              ((n)->as.binary.rhs)
+#define VAL(n)              ((n)->as.unary.value)
+
+#define BEGIN_EXPR(pattern)                               \
+    fixture_parse(&fixture, pattern);                     \
+    EXPECT_EQ_GOTO(fixture.status, CEGEX_OK, cleanup);    \
+    if(fixture.parsed->root == NULL) {                    \
+        REPORT_FAILURE("root is NULL for '%s'", pattern); \
+        goto cleanup;                                     \
+    }
+
+#define BEGIN_FIXTURE            \
+    static test_fixture fixture; \
+    fixture_init(&fixture);
+
+#define END_FIXTURE \
+    cleanup:        \
+    fixture_free(&fixture)
+
+#define EXPECT_REJECTED(pattern) \
+    EXPECT_TRUE(status_of(pattern) != CEGEX_OK)
+
+typedef struct test_fixture
+{
+    cegex_parser parser;
+    cegex_tokenizer tokenizer;
+    cegex_parsed_expr* parsed;
+    cegex_tokenized_expr* tokenized;
+
+    cegex_status status;
+} test_fixture;
+
+static void fixture_init(test_fixture* fixture)
+{
+    memset(fixture, 0, sizeof(test_fixture));
+
+    cegex_tokenizer_init(&fixture->tokenizer);
+    cegex_parser_init(&fixture->parser);
+}
+
+static void fixture_free(test_fixture* fixture)
+{
+    cegex_tokenizer_free(&fixture->tokenizer);
+    cegex_parser_free(&fixture->parser);
+}
+
+static cegex_status fixture_parse(test_fixture* fixture,
+                                  const char* regex)
+{
+    fixture->parsed = NULL;
+    fixture->status = cegex_tokenizer_exec(&fixture->tokenizer, regex, strlen(regex), &fixture->tokenized);
+    if(CEGEX_OK == fixture->status) {
+        fixture->status = cegex_parser_exec(&fixture->parser, fixture->tokenized, &fixture->parsed);
+    }
+
+    return fixture->status;
+}
+
+static cegex_status status_of(const char* pattern)
+{
+    static test_fixture fixture;
+    fixture_init(&fixture);
+    fixture_parse(&fixture, pattern);
+
+    cegex_status status = fixture.status;
+    fixture_free(&fixture);
+    return status;
+}
+
+static bool is_node_type(const cegex_parse_node* node,
+                         cegex_parse_node_type type)
+{
+    return node != NULL && node->type == type;
+}
+
+static bool is_node_charcode(const cegex_parse_node* node,
+                             cegex_uchar charcode)
+{
+    return node != NULL &&
+           node->type == CEGEX_PARSE_NODE_CHARSET &&
+           node->as.set.num_characters == 1 &&
+           node->as.set.characters[0] == charcode;
+}
+
+static void test_brace_literal_fallback(void)
+{
+    BEGIN_FIXTURE;
+
+    BEGIN_EXPR("a{");
+    assert(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT) &&
+           NODE_CHARCODE(LHS(fixture.parsed->root), 'a') &&
+           NODE_CHARCODE(RHS(fixture.parsed->root), '{'));
+
+    BEGIN_EXPR("a{,3}");
+    assert(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT));
+
+    BEGIN_EXPR("a{x}");
+    assert(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT));
+
+    BEGIN_EXPR("a{2");
+    assert(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT));
+
+    BEGIN_EXPR("{");
+    assert(NODE_CHARCODE(fixture.parsed->root, '{'));
+
+    END_FIXTURE;
+}
+
 int main(void)
 {
+    test_brace_literal_fallback();
+
     cegex_status status = CEGEX_OK;
 
     cegex_parser parser;
@@ -478,7 +593,7 @@ int main(void)
     cegex_tokenizer_init(&tokenizer);
     cegex_tokenized_expr* tokenized = NULL;
 
-    const char* expr = "\\n";
+    const char* expr = "a{x}";
     if((status = cegex_tokenizer_exec(&tokenizer, expr, strlen(expr), &tokenized)) != CEGEX_OK) {
         printf("Error occured during tokenization\n");
         goto free;

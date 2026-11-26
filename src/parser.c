@@ -316,9 +316,9 @@ static cegex_status cegex_parser_expect_digits(cegex_parser* ctx,
 {
     assert(ctx != NULL);
     assert(out != NULL);
-    assert(radix == 10 || radix == 16 || radix == 8);
-
-    cegex_status status = CEGEX_ERR_UNKNOWN;
+    assert(radix == CEGEX_RADIX_DEC ||
+           radix == CEGEX_RADIX_HEX ||
+           radix == CEGEX_RADIX_OCT);
 
     cegex_token_flags flags = CEGEX_TOKEN_FLG_DIGIT;
     flags = radix == CEGEX_RADIX_OCT ? CEGEX_TOKEN_FLG_OCT_DIGIT : flags;
@@ -329,10 +329,8 @@ static cegex_status cegex_parser_expect_digits(cegex_parser* ctx,
 
     const cegex_parsed_expr* working = cegex_parser_working_expr(ctx);
     while(!ITERATOR_EMPTY(&ctx->token_iterator)) {
-        if(num_digits >= CEGEX_DIGIT_BUFFER_LENGTH - 1) {
-            status = CEGEX_ERR_LIMIT;
-            goto fail;
-        }
+        if(num_digits >= CEGEX_DIGIT_BUFFER_LENGTH - 1)
+            return CEGEX_ERR_LIMIT;
 
         if(limit > 0 && num_digits == limit)
             break;
@@ -353,12 +351,13 @@ static cegex_status cegex_parser_expect_digits(cegex_parser* ctx,
     buffer[num_digits] = '\0';
 
     char* end;
+    errno = 0;
     *out = ((uint64_t) strtoll((const char*) buffer, &end, radix));
 
-    return CEGEX_OK;
+    if(errno == ERANGE || errno == EINVAL)
+        return CEGEX_ERR_LIMIT;
 
-fail:
-    return status;
+    return CEGEX_OK;
 }
 
 static cegex_status cegex_parser_expect_charcode(cegex_parser* ctx,
@@ -951,7 +950,6 @@ cegex_status cegex_parser_exec(cegex_parser* ctx,
                                cegex_parsed_expr** out)
 {
     assert(ctx != NULL);
-
     cegex_status status = CEGEX_ERR_UNKNOWN;
     if(tokenized->tokens.length == 0) {
         status = CEGEX_ERR_SYNTAX;
