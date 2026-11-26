@@ -92,3 +92,15 @@ cegex_status cegex_charset_add_subset(cegex_charset* set,
 fail:
     return status;
 }
+
+bool cegex_charset_contains(const cegex_charset* set,
+                            cegex_uchar needle)
+{
+    assert(set != NULL);
+    for(size_t i = 0; i < set->num_characters; i++) {
+        if(set->characters[i] == needle)
+            return true;
+    }
+
+    return false;
+}

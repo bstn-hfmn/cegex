@@ -4,6 +4,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef ITERATOR(cegex_uchar) uchar_iterator;
+
+cegex_status cegex_tokenizer_init(cegex_tokenizer* ctx)
+{
+    memset(ctx, 0, sizeof(cegex_tokenizer));
+    return CEGEX_OK;
+}
+
+void cegex_tokenizer_free(cegex_tokenizer* ctx)
+{
+    assert(ctx != NULL);
+
+    for(size_t i = 0; i < ctx->num_tokenized; i++) {
+        ARRAY_FREE(&ctx->tokenized[i].tokens);
+        free(ctx->tokenized[i].source);
+    }
+
+    ctx = NULL;
+}
+
 cegex_token_type cegex_token_type_from_char(char needle)
 {
     switch(needle) {
@@ -154,6 +174,10 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
                 token.flags |= CEGEX_TOKEN_FLG_SPECIAL;
             }
 
+            if(token.type == CEGEX_TOKEN_CLASS_DOT) {
+                token.flags |= CEGEX_TOKEN_FLG_PERL;
+            }
+
             if(current == ' ') {
                 token.flags |= CEGEX_TOKEN_FLG_WHITESPACE;
             }
@@ -186,20 +210,10 @@ cegex_status cegex_tokenizer_exec(cegex_tokenizer* ctx,
         *out = &ctx->tokenized[ctx->num_tokenized];
     }
 
-    ctx->num_tokenized += 1;
+    ctx->num_tokenized++;
     return CEGEX_OK;
 
 fail:
     ARRAY_FREE(&array);
     return status;
-}
-
-void cegex_tokenizer_free(cegex_tokenizer* ctx)
-{
-    assert(ctx != NULL);
-
-    for(size_t i = 0; i < ctx->num_tokenized; i++) {
-        ARRAY_FREE(&ctx->tokenized->tokens);
-        free(ctx->tokenized->source);
-    }
 }

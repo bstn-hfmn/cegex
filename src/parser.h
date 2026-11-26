@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define CEGEX_MAX_GROUPS          256
 #define CEGEX_DIGIT_BUFFER_LENGTH 32
 
 typedef struct cegex_token cegex_token;
@@ -70,9 +69,9 @@ typedef struct cegex_parse_node
         struct
         {
             cegex_counted_quantifier_type type;
-            size_t count;
-            size_t min;
-            size_t max;
+            uint64_t count;
+            uint64_t min;
+            uint64_t max;
         } counted;
     } data;
 
@@ -93,11 +92,11 @@ typedef struct cegex_parsed_expr
     cegex_tokenized_expr* tokenized;
 } cegex_parsed_expr;
 
-typedef ARRAY(uint32_t) cegex_group_id_stack;
+typedef ARRAY(uint32_t) cegex_group_idx_stack;
 typedef struct cegex_parser
 {
     cegex_token_iterator token_iterator;
-    cegex_group_id_stack group_id_stack;
+    cegex_group_idx_stack group_idx_stack;
 
     size_t num_parsed;
     cegex_parsed_expr parsed[CEGEX_EXPRESSION_CAPACITY];
@@ -108,6 +107,6 @@ void cegex_parser_free(cegex_parser* parser);
 
 cegex_status cegex_parser_exec(cegex_parser* ctx,
                                cegex_tokenized_expr* tokenized,
-                               cegex_parse_node** out);
+                               cegex_parsed_expr** out);
 
 #endif

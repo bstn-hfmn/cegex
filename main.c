@@ -399,8 +399,11 @@ static void cegex_parse_node_print_impl(
         break;
 
     case CEGEX_PARSE_NODE_GROUP:
-        printf(" <capturing=%s, id=%u>",
-               node->data.group.is_capturing ? "true" : "false", node->data.group.index);
+        if(node->data.group.is_capturing) {
+            printf(" <capturing=true, index=%d>", node->data.group.index);
+        } else {
+            printf(" <capturing=false>");
+        }
         break;
 
     case CEGEX_PARSE_NODE_QUANTIFIER_COUNTED:
@@ -454,7 +457,7 @@ static void cegex_parse_node_print_impl(
 
 void cegex_parse_node_print(cegex_parse_node* root)
 {
-    if(!root) {
+    if(root == NULL) {
         printf("<empty tree>\n");
         return;
     }
@@ -469,22 +472,24 @@ int main(void)
 
     cegex_parser parser;
     cegex_parser_init(&parser);
-    cegex_parse_node* root = NULL;
+    cegex_parsed_expr* parsed = NULL;
 
-    cegex_tokenizer tokenizer = { 0 };
+    cegex_tokenizer tokenizer;
+    cegex_tokenizer_init(&tokenizer);
     cegex_tokenized_expr* tokenized = NULL;
-    const char* expr = "(abc)";
+
+    const char* expr = "\\n";
     if((status = cegex_tokenizer_exec(&tokenizer, expr, strlen(expr), &tokenized)) != CEGEX_OK) {
         printf("Error occured during tokenization\n");
         goto free;
     }
 
-    if((status = cegex_parser_exec(&parser, tokenized, &root)) != CEGEX_OK) {
+    if((status = cegex_parser_exec(&parser, tokenized, &parsed)) != CEGEX_OK) {
         printf("Error occured during parsing\n");
         goto free;
     }
 
-    cegex_parse_node_print(root);
+    cegex_parse_node_print(parsed->root);
 
 free:
     cegex_parser_free(&parser);

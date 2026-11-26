@@ -12,7 +12,7 @@
 static bool cegex_token_is_charset_range_rune(cegex_token tok)
 {
     if(tok.type == CEGEX_TOKEN_SQUARE_CLOSE ||
-       (tok.flags & CEGEX_TOKEN_FLG_PERL))
+       ((tok.flags & CEGEX_TOKEN_FLG_PERL) && tok.type != CEGEX_TOKEN_CLASS_DOT))
         return false;
 
     return true;
@@ -23,7 +23,8 @@ static bool cegex_token_is_concatable(cegex_token tok)
     if(tok.type == CEGEX_TOKEN_PLUS ||
        tok.type == CEGEX_TOKEN_QUESTION_MARK ||
        tok.type == CEGEX_TOKEN_STAR ||
-       tok.type == CEGEX_TOKEN_PAREN_CLOSE)
+       tok.type == CEGEX_TOKEN_PAREN_CLOSE ||
+       tok.type == CEGEX_TOKEN_ALTERNATE)
         return false;
 
     return true;
@@ -220,12 +221,12 @@ void cegex_parser_init(cegex_parser* parser)
     assert(parser != NULL);
 
     memset(parser, 0, sizeof(cegex_parser));
-    ARRAY_INIT(&parser->group_id_stack);
+    ARRAY_INIT(&parser->group_idx_stack);
 }
 
 void cegex_parser_free(cegex_parser* parser)
 {
-    ARRAY_FREE(&parser->group_id_stack);
+    ARRAY_FREE(&parser->group_idx_stack);
 
     for(size_t i = 0; i < parser->num_parsed; i++) {
         cegex_parse_node_free(parser->parsed[i].root);
@@ -343,6 +344,7 @@ static cegex_status cegex_parser_expect_digits(cegex_parser* ctx,
             break;
 
         buffer[num_digits++] = (char) working->tokenized->source[current.start];
+        ITERATOR_NEXT(&ctx->token_iterator);
     }
 
     if(num_digits == 0 || (limit > 0 && num_digits != limit))
@@ -520,7 +522,7 @@ static cegex_status cegex_parser_counted_quantifier(cegex_parser* ctx,
     assert(out != NULL);
     assert(lhs != NULL);
 
-    size_t min = 0, max = 0;
+    uint64_t min = 0, max = 0;
     cegex_status status = CEGEX_ERR_UNKNOWN;
     cegex_counted_quantifier_type type;
 
@@ -602,9 +604,6 @@ static cegex_status cegex_parser_quantifier(cegex_parser* ctx,
     assert(lhs != NULL);
     assert(out != NULL);
 
-    if(cegex_parse_node_is_quantifier(lhs))
-        return CEGEX_ERR_SYNTAX;
-
     cegex_parse_node* quantified = NULL;
 
     cegex_status status = CEGEX_ERR_UNKNOWN;
@@ -622,8 +621,14 @@ static cegex_status cegex_parser_quantifier(cegex_parser* ctx,
             goto fail;
         } else if(CEGEX_OK != status) {
             goto fail;
+        } else if(CEGEX_OK == status) {
+            if(cegex_parse_node_is_quantifier(lhs))
+                return CEGEX_ERR_SYNTAX;
         }
     } else {
+        if(cegex_parse_node_is_quantifier(lhs))
+            return CEGEX_ERR_SYNTAX;
+
         cegex_parse_node_type node_type;
         switch(current.type) {
         case CEGEX_TOKEN_STAR:
@@ -680,7 +685,6 @@ static cegex_status cegex_parser_alternate(cegex_parser* ctx,
 
     *out = cegex_parse_node_binary(CEGEX_PARSE_NODE_ALTERNATE, lhs, rhs);
     return CEGEX_OK;
-
 fail:
     cegex_parse_node_free(rhs);
     return status;
@@ -741,7 +745,7 @@ static cegex_status cegex_parser_character_set(cegex_parser* ctx,
         CEGEX_TRY(cegex_parser_expect_charcode(ctx, &charcode));
 
         if(current.flags & CEGEX_TOKEN_FLG_ESC) {
-            if(current.flags & CEGEX_TOKEN_FLG_PERL) {
+            if((current.flags & CEGEX_TOKEN_FLG_PERL) && current.type != CEGEX_TOKEN_CLASS_DOT) {
                 CEGEX_TRY(cegex_charset_add_subset(&set, cegex_charset_perl(current.type)));
             } else {
                 CEGEX_TRY(cegex_charset_add(&set, charcode));
@@ -794,13 +798,8 @@ static cegex_status cegex_parser_group(cegex_parser* ctx,
         is_capturing = false;
     }
 
-    if(ctx->group_id_stack.length >= CEGEX_MAX_GROUPS) {
-        status = CEGEX_ERR_LIMIT;
-        goto fail;
-    }
-
     CEGEX_TRY(
-        ARRAY_PUSH(&ctx->group_id_stack, working->num_groups));
+        ARRAY_PUSH(&ctx->group_idx_stack, working->num_groups));
 
     if(is_capturing)
         working->num_groups++;
@@ -808,8 +807,8 @@ static cegex_status cegex_parser_group(cegex_parser* ctx,
     cegex_parse_node* expr = NULL;
     status = cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_NONE, &expr);
 
-    uint32_t group_id;
-    ARRAY_POP(&ctx->group_id_stack, &group_id);
+    uint32_t group_index;
+    ARRAY_POP(&ctx->group_idx_stack, &group_index);
 
     if(status != CEGEX_OK)
         goto fail;
@@ -821,7 +820,7 @@ static cegex_status cegex_parser_group(cegex_parser* ctx,
 
     cegex_parse_node* node = cegex_parse_node_unary(CEGEX_PARSE_NODE_GROUP, expr);
     node->data.group.is_capturing = is_capturing;
-    node->data.group.index = is_capturing ? group_id : 0;
+    node->data.group.index = is_capturing ? group_index : 0;
 
     *out = node;
     return CEGEX_OK;
@@ -883,14 +882,17 @@ static cegex_status cegex_parser_expr(cegex_parser* ctx,
     const cegex_parsing_rule* prefix = cegex_parser_find_prefix(current.type);
     if(prefix != NULL) {
         CEGEX_TRY(prefix->parse(ctx, current, prefix->precedence, NULL, &lhs));
-    } else {
+    } else if(cegex_token_is_concatable(current)) {
         CEGEX_TRY(cegex_parser_charcode(ctx, current, CEGEX_PARSING_PRECEDENCE_NONE, NULL, &lhs));
+    } else {
+        status = CEGEX_ERR_UNEXPECTED;
+        goto fail;
     }
 
     while(!ITERATOR_EMPTY(&ctx->token_iterator)) {
         CEGEX_TRY(ITERATOR_CURRENT(&ctx->token_iterator, &current));
         if(current.type == CEGEX_TOKEN_PAREN_CLOSE) {
-            if(ARRAY_EMPTY(&ctx->group_id_stack)) {
+            if(ARRAY_EMPTY(&ctx->group_idx_stack)) {
                 status = CEGEX_ERR_SYNTAX;
                 goto fail;
             }
@@ -903,12 +905,12 @@ static cegex_status cegex_parser_expr(cegex_parser* ctx,
             cegex_parse_node* node = NULL;
             status = suffix->parse(ctx, current, suffix->precedence, lhs, &node);
 
-            if(status != CEGEX_OK && current.type != CEGEX_TOKEN_CURLY_OPEN) {
-                goto fail;
-            } else if(status == CEGEX_OK) {
+            if(status == CEGEX_OK) {
                 lhs = node;
                 continue;
             }
+            if(!(current.type == CEGEX_TOKEN_CURLY_OPEN && status == CEGEX_ERR_UNEXPECTED))
+                goto fail;
         }
 
         const cegex_parsing_rule* infix = cegex_parser_find_infix(current.type);
@@ -940,12 +942,13 @@ static cegex_status cegex_parser_expr(cegex_parser* ctx,
     *out = lhs;
     return CEGEX_OK;
 fail:
+    cegex_parse_node_free(lhs);
     return status;
 }
 
 cegex_status cegex_parser_exec(cegex_parser* ctx,
                                cegex_tokenized_expr* tokenized,
-                               cegex_parse_node** out)
+                               cegex_parsed_expr** out)
 {
     assert(ctx != NULL);
 
@@ -963,10 +966,13 @@ cegex_status cegex_parser_exec(cegex_parser* ctx,
     ITERATOR_INIT(&ctx->token_iterator, tokenized->tokens.elements, tokenized->tokens.length);
     ctx->parsed[ctx->num_parsed] = (cegex_parsed_expr){ 0 };
     ctx->parsed[ctx->num_parsed].tokenized = tokenized;
+    ctx->group_idx_stack.length = 0;
 
     CEGEX_TRY(cegex_parser_expr(ctx, CEGEX_PARSING_PRECEDENCE_NONE, &ctx->parsed[ctx->num_parsed].root));
+    assert(ITERATOR_EMPTY(&ctx->token_iterator));
+
     if(out != NULL) {
-        *out = ctx->parsed[ctx->num_parsed].root;
+        *out = &ctx->parsed[ctx->num_parsed];
     }
 
     ctx->num_parsed++;

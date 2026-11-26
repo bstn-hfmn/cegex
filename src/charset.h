@@ -2,7 +2,7 @@
 #define CEGEX_CHARSET_H
 
 #include "common.h"
-#include "tokenizer.h"
+#include "token.h"
 #include <stdbool.h>
 
 #define CEGEX_CHARSET_CAPACITY 256
@@ -49,5 +49,8 @@ cegex_status cegex_charset_add_range(cegex_charset* set,
 
 cegex_status cegex_charset_add_subset(cegex_charset* set,
                                       cegex_charset subset);
+
+bool cegex_charset_contains(const cegex_charset* set,
+                            cegex_uchar needle);
 
 #endif
