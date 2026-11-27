@@ -671,10 +671,12 @@ static void test_anchors(void)
                 NODE_IS(RHS(fixture.parsed->root), CEGEX_PARSE_NODE_ANCHOR_END));
 
     BEGIN_EXPR("\\bx");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT) && NODE_IS(LHS(fixture.parsed->root), CEGEX_PARSE_NODE_ANCHOR_WORD_BOUNDARY));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT) &&
+                NODE_IS(LHS(fixture.parsed->root), CEGEX_PARSE_NODE_ANCHOR_WORD_BOUNDARY));
 
     BEGIN_EXPR("\\Bx");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT) && NODE_IS(LHS(fixture.parsed->root), CEGEX_PARSE_NODE_ANCHOR_NOT_WORD_BOUNDARY));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CONCAT) &&
+                NODE_IS(LHS(fixture.parsed->root), CEGEX_PARSE_NODE_ANCHOR_NOT_WORD_BOUNDARY));
 
     END_FIXTURE;
 }
@@ -708,8 +710,11 @@ static void test_set_simple(void)
 
     BEGIN_EXPR("[abc]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, 'a') && cegex_charset_contains(&r->as.set, 'b') &&
-                cegex_charset_contains(&r->as.set, 'c') && !cegex_charset_contains(&r->as.set, 'd'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, 'a') &&
+                cegex_charset_contains(&r->as.set, 'b') &&
+                cegex_charset_contains(&r->as.set, 'c') &&
+                !cegex_charset_contains(&r->as.set, 'd'));
     END_FIXTURE;
 }
 
@@ -719,8 +724,12 @@ static void test_set_range(void)
 
     BEGIN_EXPR("[a-c]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, 'a') && cegex_charset_contains(&r->as.set, 'b') &&
-                cegex_charset_contains(&r->as.set, 'c') && !cegex_charset_contains(&r->as.set, 'd') && !cegex_charset_contains(&r->as.set, '-'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, 'a') &&
+                cegex_charset_contains(&r->as.set, 'b') &&
+                cegex_charset_contains(&r->as.set, 'c') &&
+                !cegex_charset_contains(&r->as.set, 'd') &&
+                !cegex_charset_contains(&r->as.set, '-'));
 
     END_FIXTURE;
 }
@@ -731,8 +740,12 @@ static void test_set_multiple_ranges(void)
 
     BEGIN_EXPR("[a-cx-z0-2]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, 'b') && cegex_charset_contains(&r->as.set, 'y') && cegex_charset_contains(&r->as.set, '1') &&
-                !cegex_charset_contains(&r->as.set, 'm') && !cegex_charset_contains(&r->as.set, '5'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, 'b') &&
+                cegex_charset_contains(&r->as.set, 'y') &&
+                cegex_charset_contains(&r->as.set, '1') &&
+                !cegex_charset_contains(&r->as.set, 'm') &&
+                !cegex_charset_contains(&r->as.set, '5'));
     END_FIXTURE;
 }
 
@@ -741,7 +754,8 @@ static void test_set_negated(void)
     BEGIN_FIXTURE;
 
     BEGIN_EXPR("[^a]");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) && fixture.parsed->root->as.set.negated);
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                fixture.parsed->root->as.set.negated);
 
     END_FIXTURE;
 }
@@ -752,7 +766,10 @@ static void test_set_hat_not_first_is_literal(void)
 
     BEGIN_EXPR("[a^]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && !r->as.set.negated && cegex_charset_contains(&r->as.set, '^') && cegex_charset_contains(&r->as.set, 'a'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                !r->as.set.negated &&
+                cegex_charset_contains(&r->as.set, '^') &&
+                cegex_charset_contains(&r->as.set, 'a'));
 
     END_FIXTURE;
 }
@@ -762,15 +779,22 @@ static void test_set_dash_literals(void)
     BEGIN_FIXTURE;
 
     BEGIN_EXPR("[a-]");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&fixture.parsed->root->as.set, 'a') && cegex_charset_contains(&fixture.parsed->root->as.set, '-') &&
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, 'a') &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, '-') &&
                 !cegex_charset_contains(&fixture.parsed->root->as.set, 'b'));
     BEGIN_EXPR("[-a]");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&fixture.parsed->root->as.set, 'a') && cegex_charset_contains(&fixture.parsed->root->as.set, '-'));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, 'a') &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, '-'));
 
     BEGIN_EXPR("[a-c-e]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, 'b') && cegex_charset_contains(&r->as.set, '-') &&
-                cegex_charset_contains(&r->as.set, 'e') && !cegex_charset_contains(&r->as.set, 'd'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, 'b') &&
+                cegex_charset_contains(&r->as.set, '-') &&
+                cegex_charset_contains(&r->as.set, 'e') &&
+                !cegex_charset_contains(&r->as.set, 'd'));
 
     END_FIXTURE;
 }
@@ -781,7 +805,10 @@ static void test_set_with_perl_class(void)
 
     BEGIN_EXPR("[\\d_]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, '5') && cegex_charset_contains(&r->as.set, '_') && !cegex_charset_contains(&r->as.set, 'a'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, '5') &&
+                cegex_charset_contains(&r->as.set, '_') &&
+                !cegex_charset_contains(&r->as.set, 'a'));
 
     END_FIXTURE;
 }
@@ -792,8 +819,11 @@ static void test_set_dash_after_perl_class_is_literal(void)
 
     BEGIN_EXPR("[\\d-z]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, '5') && cegex_charset_contains(&r->as.set, '-') &&
-                cegex_charset_contains(&r->as.set, 'z') && !cegex_charset_contains(&r->as.set, 'a'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, '5') &&
+                cegex_charset_contains(&r->as.set, '-') &&
+                cegex_charset_contains(&r->as.set, 'z') &&
+                !cegex_charset_contains(&r->as.set, 'a'));
     END_FIXTURE;
 }
 
@@ -802,7 +832,9 @@ static void test_set_dot_is_literal(void)
     BEGIN_FIXTURE;
 
     BEGIN_EXPR("[.]");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&fixture.parsed->root->as.set, '.') && !cegex_charset_contains(&fixture.parsed->root->as.set, 'a'));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, '.') &&
+                !cegex_charset_contains(&fixture.parsed->root->as.set, 'a'));
 
     END_FIXTURE;
 }
@@ -812,10 +844,13 @@ static void test_set_escapes(void)
     BEGIN_FIXTURE;
 
     BEGIN_EXPR("[\\n\\t]");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&fixture.parsed->root->as.set, '\n') && cegex_charset_contains(&fixture.parsed->root->as.set, '\t'));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, '\n') &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, '\t'));
 
     BEGIN_EXPR("[\\]]");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&fixture.parsed->root->as.set, ']'));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, ']'));
 
     END_FIXTURE;
 }
@@ -826,8 +861,11 @@ static void test_set_range_with_hex_endpoints(void)
 
     BEGIN_EXPR("[\\x41-\\x43]");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) && cegex_charset_contains(&r->as.set, 'A') && cegex_charset_contains(&r->as.set, 'B') &&
-                cegex_charset_contains(&r->as.set, 'C') && !cegex_charset_contains(&r->as.set, 'D'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&r->as.set, 'A') &&
+                cegex_charset_contains(&r->as.set, 'B') &&
+                cegex_charset_contains(&r->as.set, 'C') &&
+                !cegex_charset_contains(&r->as.set, 'D'));
 
     END_FIXTURE;
 }
@@ -838,10 +876,14 @@ static void test_set_in_context(void)
 
     BEGIN_EXPR("x[a-c]y");
     const cegex_parse_node* r = fixture.parsed->root;
-    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CONCAT) && NODE_IS(LHS(r), CEGEX_PARSE_NODE_CONCAT) && NODE_IS(RHS(LHS(r)), CEGEX_PARSE_NODE_CHARSET) && NODE_CHARCODE(RHS(r), 'y'));
+    EXPECT_TRUE(NODE_IS(r, CEGEX_PARSE_NODE_CONCAT) &&
+                NODE_IS(LHS(r), CEGEX_PARSE_NODE_CONCAT) &&
+                NODE_IS(RHS(LHS(r)), CEGEX_PARSE_NODE_CHARSET) &&
+                NODE_CHARCODE(RHS(r), 'y'));
 
     BEGIN_EXPR("[a-z]+");
-    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_QUANTIFIER_PLUS) && NODE_IS(VAL(fixture.parsed->root), CEGEX_PARSE_NODE_CHARSET));
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_QUANTIFIER_PLUS) &&
+                NODE_IS(VAL(fixture.parsed->root), CEGEX_PARSE_NODE_CHARSET));
 
     END_FIXTURE;
 }
@@ -854,6 +896,33 @@ static void test_set_errors(void)
     EXPECT_REJECTED("[abc");
     EXPECT_REJECTED("[a-z");
     EXPECT_REJECTED("[z-a]");
+}
+
+static void test_leading_quantifier_rejected(void)
+{
+    EXPECT_REJECTED("*a");
+    EXPECT_REJECTED("+a");
+    EXPECT_REJECTED("?a");
+    EXPECT_REJECTED("a|*");
+    EXPECT_REJECTED("(*a)");
+}
+
+static void test_leading_alternation_rejected(void)
+{
+    EXPECT_REJECTED("|a");
+    EXPECT_REJECTED("(|a)");
+}
+
+static void test_set_range_starting_at_dot(void)
+{
+    BEGIN_FIXTURE;
+
+    BEGIN_EXPR("[.-z]");
+    EXPECT_TRUE(NODE_IS(fixture.parsed->root, CEGEX_PARSE_NODE_CHARSET) &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, 'a') &&
+                cegex_charset_contains(&fixture.parsed->root->as.set, '.'));
+
+    END_FIXTURE;
 }
 
 static void test_realistic_patterns_parse(void)
@@ -944,6 +1013,10 @@ int main(void)
     RUN_TEST(test_set_range_with_hex_endpoints);
     RUN_TEST(test_set_in_context);
     RUN_TEST(test_set_errors);
+
+    RUN_TEST(test_leading_quantifier_rejected);
+    RUN_TEST(test_leading_alternation_rejected);
+    RUN_TEST(test_set_range_starting_at_dot);
 
     RUN_TEST(test_realistic_patterns_parse);
 
